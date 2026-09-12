@@ -1,0 +1,71 @@
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.python-version
+
+# Next.js
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# FastAPI / Python build
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vercel
+.vercel
+
+# Local DB / temp files
+*.sqlite
+*.sqlite3
+*.db
+tmp/
+temp/
+
+# Supabase local
+supabase/.branches
+supabase/.temp
+
+# Uploaded assets during development
+uploads/
+
+# Secrets
+*.pem
+*.key
+secrets/
+
+# OS
+Thumbs.db

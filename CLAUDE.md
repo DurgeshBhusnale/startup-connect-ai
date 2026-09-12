@@ -1,0 +1,229 @@
+# CLAUDE.md — Startup Connect AI
+
+Project memory for Claude Code. You are helping Durgesh build **Startup Connect AI**, a two-sided AI matching platform for the Indian startup ecosystem. This file is auto-loaded at the start of every session. Read it fully before responding to any prompt.
+
+---
+
+## Project overview
+
+**What we're building:** An AI-driven platform that matches early-stage Indian startup founders with the right investors and mentors. Every match ships with a plain-language explanation ("why this match") so users trust the AI's decisions.
+
+**Who it's for:** Three personas — Founders (raising seed/pre-seed), Investors (angels + micro-VCs), Mentors (sector experts). All three sides use the same app with different views.
+
+**Stage:** Solo build. B.E. final-year project + intended future startup. Currently in Week 1 of a 6-week MVP sprint. First 5 real beta users onboarded by end of Week 6.
+
+**Full context lives in `/docs`:**
+- `StartupConnectAI_Research_Report.docx` — market research, competitor analysis, literature review, design decisions
+- `StartupConnectAI_Business_Architecture.docx` — actors, MoSCoW use cases, 3 named personas, journeys, monetization
+- `StartupConnectAI_Wardley_Mapping.docx` — build/buy decisions (W1–W15) — the strategic constitution
+- `StartupConnectAI_Technical_Architecture.docx` — system design, data model, ML pipeline, deployment topology, cost projections
+- `StartupConnectAI_PRD.docx` — engineer-executable user stories with acceptance criteria for M1–M10 (MUST) and S1–S9 (SHOULD)
+- `StartupConnectAI_UI_Design_Brief.docx` — design system + Stitch prompts for all 28 screens (S-01 to S-28)
+- `StartupConnectAI_6Week_Sprint_Plan.docx` — week-by-week build calendar
+
+**When user references a story ID (M1–M10, S1–S9) or screen ID (S-01 to S-28)**, look it up in the PRD / UI Design Brief in `/docs` before implementing. Do NOT guess acceptance criteria from memory — read the actual document.
+
+---
+
+## Tech stack (LOCKED — do not suggest alternatives unless asked)
+
+| Layer | Choice | Why |
+|---|---|---|
+| Frontend | Next.js 14 (App Router) + TypeScript + Tailwind CSS | Modern React with SSR for SEO on landing pages |
+| Auth | Clerk (hosted) | LinkedIn + Google + email OAuth, MFA, sessions handled |
+| Backend API | FastAPI (Python 3.12) | Single process for v1; extract to services later |
+| Primary DB | Supabase Postgres | Managed; RLS policies for auth |
+| Vector DB | Qdrant Cloud (1GB free tier) | Semantic search + matching |
+| Object storage | Cloudflare R2 | S3-compatible, cheap egress |
+| Job queue | Upstash Redis + BullMQ (or RQ for Python) | Managed |
+| LLM (primary) | Groq (Llama-3.1-70b) | Fastest inference; OpenAI-compatible API |
+| LLM (fallback) | OpenAI GPT-4o-mini / Anthropic Claude | For when Groq is down |
+| Embeddings | sentence-transformers/all-MiniLM-L6-v2 (384-dim) | Small, fast, MTEB leader for its size |
+| Frontend deploy | Vercel (Pro tier when needed) | Auto-deploys on push |
+| Backend deploy | Railway | Managed containers |
+| Email | SendGrid or Resend | Transactional email |
+| WhatsApp | 360dialog (BSP) | Not v1 — deferred to Week 7+ |
+
+**Wardley decisions to respect (from Wardley Mapping doc W1–W15):**
+- W1: DO NOT build our own vector DB — Qdrant only
+- W2: DO NOT train our own embedding model — sentence-transformers only
+- W3: DO NOT build our own auth — Clerk only
+- W4: DO NOT build our own chat/messaging SDK — deferred to v1.1
+- W5: DO NOT build our own scheduler — Cal.com embed when needed
+- W6: WE WILL build matching engine end-to-end in-house (this is the moat)
+- W7: WE WILL build explanation generator with our own prompt templates
+- W11: STANDARDISE on OpenAI-compatible LLM API spec — swap providers via env var
+
+---
+
+## Repository structure
+
+```
+/
+├── apps/
+│   ├── web/                    # Next.js frontend
+│   │   ├── app/                # App Router pages
+│   │   ├── components/         # React components
+│   │   ├── lib/                # Client utilities
+│   │   └── public/             # Static assets
+│   └── api/                    # FastAPI backend
+│       ├── app/
+│       │   ├── main.py         # FastAPI entrypoint
+│       │   ├── routers/        # API routes grouped by domain
+│       │   ├── services/       # Business logic (profile, matching, explanation)
+│       │   ├── models/         # Pydantic + SQLAlchemy models
+│       │   ├── db/             # DB session, migrations
+│       │   ├── workers/        # Async job handlers
+│       │   └── config.py       # Env var loader
+│       ├── tests/
+│       └── requirements.txt
+├── docs/                       # All strategy + design docs (read-only reference)
+├── supabase/
+│   └── migrations/             # SQL migration files
+├── designs/                    # Stitch/Figma exports (S-XX.png)
+├── .env.example
+├── .gitignore
+├── CLAUDE.md                   # this file
+└── README.md
+```
+
+**Directory conventions:**
+- Keep frontend and backend separated — deploy targets are different (Vercel vs Railway)
+- No monorepo tool needed for v1 — simple folder split
+- Migrations in `/supabase/migrations` with timestamped filenames (Supabase CLI convention)
+- Never commit `.env` — only `.env.example` with placeholder values
+
+---
+
+## Coding conventions
+
+### Frontend (Next.js + TypeScript)
+- **App Router only** (no Pages Router)
+- **Server Components by default**; add `"use client"` only when interactivity is needed
+- **Tailwind** for all styling — no CSS-in-JS, no separate .css files except globals
+- **Design tokens** in `apps/web/lib/design-tokens.ts` — import colors from there, never hardcode hex values
+- **Types:** strict mode ON; no `any` unless explicitly justified in a comment
+- **Component naming:** PascalCase for components, camelCase for utilities, kebab-case for files (`match-card.tsx`)
+- **Imports order:** external libs → internal absolute imports (`@/lib/…`) → relative imports → types
+- **API calls** use a thin fetch wrapper in `lib/api.ts` — never call `fetch` directly from components
+
+### Backend (FastAPI + Python)
+- **Python 3.12**, `ruff` for linting, `mypy` in strict mode
+- **Pydantic v2** for request/response models — never accept raw dicts
+- **Async everywhere** unless the underlying library forces sync
+- **Naming:** snake_case for everything except Pydantic model classes (PascalCase)
+- **Routers organized by domain:** `/routers/profiles.py`, `/routers/matches.py`, `/routers/intros.py`
+- **Services separated from routers:** business logic in `services/`, HTTP concerns in `routers/`
+- **JWT verification:** middleware validates Clerk JWT on every non-webhook request; `request.state.user_id` available to handlers
+- **Errors:** RFC 7807 problem+json format; never leak internal error details in production
+
+### Database (Supabase Postgres)
+- **All primary keys are UUIDs** (`gen_random_uuid()`)
+- **All timestamps are `timestamptz`** (UTC)
+- **RLS enabled** on every user-owned table
+- **JSONB** for flexible fields (e.g., `profiles.l1_data`) — not EAV or nullable-column soup
+- **Indexes:** always index foreign keys and `created_at`/`occurred_at` columns queried in ORDER BY
+
+---
+
+## Design system (locked — from UI Design Brief Section 4)
+
+### Colors (use hex codes exactly)
+| Name | Hex | Usage |
+|---|---|---|
+| Ink | `#0B2027` | Primary buttons, primary text, dark surfaces |
+| Teal | `#028090` | Links, section headers, brand accents |
+| Seafoam | `#00A896` | Secondary accents, tags |
+| Mint | `#02C39A` | Success, verified badges, high-fit indicators |
+| Muted | `#5C7A78` | Secondary text, metadata |
+| Off-white | `#F4FAF9` | Card backgrounds, subtle sections |
+| Band | `#E3EFEE` | Dividers, table row bands |
+| White | `#FFFFFF` | Main background |
+| Alert Red | `#B91C1C` | Errors, destructive actions |
+| Alert Amber | `#D97706` | Warnings, low-confidence highlights |
+
+### Typography
+- **Headings:** Georgia (serif) — H1 32px, H2 24px, H3 20px, H4 16px
+- **Body:** Inter (sans-serif) — 16px base
+- **Mono:** JetBrains Mono — for code, API endpoints, IDs
+
+### Spacing scale
+`4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 / 96` (px) — do not use values outside this scale.
+
+### Radii
+Cards 8px · Inputs 6px · Badges 4px · Modals 12px
+
+### Components (Tailwind classes)
+- **Primary button:** `bg-[#0B2027] text-white px-4 py-3 rounded-md hover:opacity-90`
+- **Secondary button:** `bg-white border border-[#0B2027] text-[#0B2027] px-4 py-3 rounded-md`
+- **Ghost button:** `text-[#028090] px-4 py-3 hover:bg-[#F4FAF9] rounded-md`
+- **Cards:** `bg-white rounded-lg p-6 shadow-sm`
+- **Inputs:** `border border-[#5C7A78] rounded-md px-3 py-3 focus:ring-2 focus:ring-[#028090]/30`
+
+---
+
+## Workflow rules
+
+### Before starting any story
+1. Read the story in the PRD (`docs/StartupConnectAI_PRD.docx` — story IDs M1–M10, S1–S9)
+2. Read the referenced screens in the UI Design Brief (S-01 to S-28)
+3. Confirm with me what's included / excluded before writing code
+
+### During implementation
+- **One story at a time.** Don't jump between M1 and M3 in the same session.
+- **Ship a working version before polishing.** Get the happy path working end-to-end, then handle edge cases.
+- **Test with real-looking data** (use the personas Riya/Aditya/Meera from the PRD) — never lorem ipsum.
+- **Commit often** with story ID prefix: `[M1] add pitch deck upload endpoint`
+- **Ask before adding dependencies.** Every new npm/pip package needs justification.
+
+### When stuck
+- Search the docs first. Answers to design questions almost always exist in Business Architecture or PRD.
+- If a Wardley decision (W1–W15) blocks a natural implementation choice, respect the Wardley decision and find a workaround — don't override it silently.
+- If the PRD is ambiguous, ask me for clarification. Don't make silent assumptions.
+
+### Definition of Done for a story
+From PRD Section 8 — all must be true:
+1. Every acceptance criterion (AC1, AC2, …) passes by manual test
+2. All API endpoints return the documented shape (happy path verified)
+3. Edge cases handled OR explicitly deferred with a code comment
+4. Analytics events fire with correct properties (once analytics is wired in Week 6)
+5. Screens match the design system
+6. Mobile web (375px) renders without horizontal scroll
+7. Empty, loading, and error states all implemented (not just happy path)
+8. Keyboard accessibility baseline met
+9. No console errors or warnings in production build
+10. Commit message references story ID
+
+---
+
+## Current sprint state
+
+**We are in Week 1 of the 6-week plan.** See `docs/StartupConnectAI_6Week_Sprint_Plan.docx` for full context.
+
+**Week 1 goal:** By end of week, deploy a working shell where a user can sign up as any of 3 roles and land on their empty dashboard. Nothing else works yet — that's fine.
+
+**Week 1 deliverables:**
+- Next.js 14 + TypeScript + Tailwind scaffold, deployed to Vercel
+- Clerk auth wired (LinkedIn + Google + email)
+- Landing page (S-01) matching Stitch designs
+- Sign Up / Sign In page (S-02) with role selector
+- Empty app shell — sidebar + top nav (S-09 skeleton)
+- Supabase project created, initial schema pushed (users + profiles + investor_thesis + mentor_expertise tables)
+- Clean GitHub repo with README
+
+**Key change from original plan:** We are NOT using Lovable for scaffolding. Direct Claude Code from Day 1. This saves handoff friction but means Day 1-2 is spent on manual scaffolding instead of AI-generated scaffolding.
+
+---
+
+## What NOT to do
+
+- ❌ Do not suggest tech stack alternatives (the stack is locked from Technical Architecture doc)
+- ❌ Do not create Lovable-style components — we're not migrating from Lovable
+- ❌ Do not implement L2 momentum aggregator (M5) or L3 posts (M4) in Weeks 1-6 — deferred to Week 7+
+- ❌ Do not add WhatsApp or email notifications for v1 — in-app only until Week 7+
+- ❌ Do not build custom auth flows — Clerk owns all auth screens
+- ❌ Do not use `any` in TypeScript or accept raw dicts in FastAPI
+- ❌ Do not hardcode API URLs or secrets — always env vars
+- ❌ Do not commit `.env` files
+- ❌ Do not skip mobile responsive design — every screen must work at 375px
+- ❌ Do not add features not in the current week's plan without discussing first
