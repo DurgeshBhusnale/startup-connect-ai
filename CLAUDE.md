@@ -126,39 +126,44 @@ Project memory for Claude Code. You are helping Durgesh build **Startup Connect 
 
 ---
 
-## Design system (locked — from UI Design Brief Section 4)
+## Design system (locked — revised 2026-09-13, supersedes the original teal/mint palette)
 
 ### Colors (use hex codes exactly)
-| Name | Hex | Usage |
+| Token | Hex | Usage |
 |---|---|---|
-| Ink | `#0B2027` | Primary buttons, primary text, dark surfaces |
-| Teal | `#028090` | Links, section headers, brand accents |
-| Seafoam | `#00A896` | Secondary accents, tags |
-| Mint | `#02C39A` | Success, verified badges, high-fit indicators |
-| Muted | `#5C7A78` | Secondary text, metadata |
-| Off-white | `#F4FAF9` | Card backgrounds, subtle sections |
-| Band | `#E3EFEE` | Dividers, table row bands |
+| Ink | `#0B0F19` | Primary text, primary buttons, high-contrast dark footer surfaces |
+| Emerald | `#059669` | Brand accents, icons, fills, focus rings, large text only (≥24px, or ≥18.66px bold) |
+| Emerald Bright | `#10B981` | Fit-score indicators, verified badge fills, accents on Ink surfaces — never as text on light backgrounds |
+| Emerald Deep | `#047857` | Link text and any small emerald text on light backgrounds |
 | White | `#FFFFFF` | Main background |
+| Slate 50 | `#F8FAFC` | Card backgrounds, subtle sections |
+| Slate 100 | `#F1F5F9` | Row bands, hover fills, secondary surfaces |
+| Border | `#E2E8F0` | Card borders, dividers |
+| Muted | `#64748B` | Metadata, subheaders, input borders — only on White or Slate 50 |
 | Alert Red | `#B91C1C` | Errors, destructive actions |
-| Alert Amber | `#D97706` | Warnings, low-confidence highlights |
+| Alert Amber | `#D97706` | Warnings, low-confidence highlights (borders/icons, not body text) |
+
+**Contrast rules (WCAG AA):** Emerald `#059669` is 3.77:1 on white and Emerald Bright `#10B981` is 2.54:1, so neither may be used for normal-size text on light backgrounds; use Emerald Deep (5.48:1). Muted drops to 4.34:1 on Slate 100, so keep it off that surface. Input borders use Muted, not Border, to meet the 3:1 non-text contrast minimum.
 
 ### Typography
-- **Headings:** Georgia (serif) — H1 32px, H2 24px, H3 20px, H4 16px
-- **Body:** Inter (sans-serif) — 16px base
-- **Mono:** JetBrains Mono — for code, API endpoints, IDs
+- **Headings:** Georgia (serif) — H1 32px, H2 24px, H3 20px, H4 16px. Landing hero (S-01) only: 48–56px.
+- **Body:** Inter (sans-serif) — 16px base, 14px small, 12px meta
+- **Mono:** JetBrains Mono — for system metrics, code, API endpoints, IDs
 
 ### Spacing scale
 `4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 / 96` (px) — do not use values outside this scale.
 
-### Radii
-Cards 8px · Inputs 6px · Badges 4px · Modals 12px
+### Radii & elevation
+Cards 8px · Buttons & inputs 6px · Badges 4px · Modals 12px
+Elevation: two levels only — flat (default) and card (`0 1px 3px rgba(0,0,0,0.06)`)
 
-### Components (Tailwind classes)
-- **Primary button:** `bg-[#0B2027] text-white px-4 py-3 rounded-md hover:opacity-90`
-- **Secondary button:** `bg-white border border-[#0B2027] text-[#0B2027] px-4 py-3 rounded-md`
-- **Ghost button:** `text-[#028090] px-4 py-3 hover:bg-[#F4FAF9] rounded-md`
-- **Cards:** `bg-white rounded-lg p-6 shadow-sm`
-- **Inputs:** `border border-[#5C7A78] rounded-md px-3 py-3 focus:ring-2 focus:ring-[#028090]/30`
+### Components (Tailwind classes — token names map to `lib/design-tokens.ts` via `tailwind.config.ts`; never use arbitrary hex like `bg-[#...]`)
+- **Primary button:** `bg-ink text-white px-4 py-3 rounded-md hover:opacity-90`
+- **Secondary button:** `bg-white border border-ink text-ink px-4 py-3 rounded-md`
+- **Ghost button:** `text-emerald-deep px-4 py-3 hover:bg-slate-50 rounded-md`
+- **Cards:** `bg-white border border-line rounded-lg p-6 shadow-card`
+- **Inputs:** `border border-muted rounded-md px-3 py-3 focus:ring-2 focus:ring-emerald/30`
+- **Footer:** `bg-ink text-white`
 
 ---
 
