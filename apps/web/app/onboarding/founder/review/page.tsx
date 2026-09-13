@@ -29,7 +29,7 @@ export default async function FounderReviewPage({ searchParams }: FounderReviewP
   return (
     <OnboardingShell>
       <section className={`${cardStyles} mx-auto w-full max-w-onboarding-wide p-6 sm:p-8`}>
-        <OnboardingStepper current={2} />
+        <OnboardingStepper flow="founder" current={2} />
         <h1 className="mt-6">{draft ? "Here’s what we found" : "Tell us about your startup"}</h1>
         <p className="mt-2 text-small text-muted">
           {draft

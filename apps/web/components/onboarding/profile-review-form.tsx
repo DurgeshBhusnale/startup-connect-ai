@@ -19,11 +19,10 @@ import {
   MAX_COMPETITORS,
   businessModels,
   draftToFormValues,
-  founderSectors,
-  founderStages,
   initialSaveProfileState,
   validateFounderProfile,
 } from "@/lib/founder-profile";
+import { founderSectors, founderStages } from "@/lib/taxonomy";
 import { buttonStyles } from "@/lib/ui";
 
 import type { FounderProfileDraft } from "@/lib/api-types";

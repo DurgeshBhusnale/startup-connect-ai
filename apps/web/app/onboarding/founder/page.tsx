@@ -22,7 +22,7 @@ export default async function FounderDeckPage() {
   return (
     <OnboardingShell>
       <section className={`${cardStyles} mx-auto w-full max-w-onboarding p-6 sm:p-8`}>
-        <OnboardingStepper current={1} />
+        <OnboardingStepper flow="founder" current={1} />
         <div className="mt-6 text-center">
           <h1>Let’s build your profile</h1>
           <p className="mt-2 text-small text-muted">

@@ -265,6 +265,41 @@ export const LinkedinIcon = createIcon(
   </>,
 );
 
+export const MapPinIcon = createIcon(
+  "MapPinIcon",
+  <>
+    <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
+    <circle cx="12" cy="10" r="3" />
+  </>,
+);
+
+export const GlobeIcon = createIcon(
+  "GlobeIcon",
+  <>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+    <path d="M2 12h20" />
+  </>,
+);
+
+export const TrashIcon = createIcon(
+  "TrashIcon",
+  <>
+    <path d="M3 6h18" />
+    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+  </>,
+);
+
+export const PlusCircleIcon = createIcon(
+  "PlusCircleIcon",
+  <>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M8 12h8" />
+    <path d="M12 8v8" />
+  </>,
+);
+
 export const LogoMarkIcon = createIcon(
   "LogoMarkIcon",
   <>

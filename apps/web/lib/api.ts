@@ -24,6 +24,9 @@ async function readResponse<T>(response: Response): Promise<T> {
     const problem = isJson ? ((await response.json()) as ProblemDetail) : null;
     throw new ApiError(response.status, problem);
   }
+  if (response.status === 204) {
+    return undefined as T;
+  }
   return (await response.json()) as T;
 }
 

@@ -1,34 +1,14 @@
-import type { FounderL1Data, FounderProfileDraft, FounderStage } from "@/lib/api-types";
+import { formatRupees, parseRupees } from "@/lib/currency";
+import { founderSectors, founderStages } from "@/lib/taxonomy";
+
+import type { FounderL1Data, FounderProfileDraft } from "@/lib/api-types";
 
 export const LOW_CONFIDENCE_THRESHOLD = 0.7;
 export const MAX_DECK_BYTES = 20 * 1024 * 1024;
 export const MAX_COMPETITORS = 3;
 export const DESCRIPTION_MAX = 300;
 
-// Keep these option lists in sync with apps/api/app/models/founder.py.
-export const founderSectors = [
-  "Fintech",
-  "SaaS",
-  "AI/ML",
-  "Consumer",
-  "D2C",
-  "Healthtech",
-  "Edtech",
-  "Agritech",
-  "Climate & Energy",
-  "Logistics",
-  "Mobility",
-  "Deep Tech",
-  "Enterprise",
-  "HR Tech",
-  "Proptech",
-  "Gaming",
-  "Media & Content",
-  "Cybersecurity",
-  "Legal Tech",
-  "Other",
-] as const;
-
+// Keep in sync with BusinessModel in apps/api/app/models/founder.py.
 export const businessModels = [
   "B2B SaaS subscription",
   "B2C subscription",
@@ -40,12 +20,6 @@ export const businessModels = [
   "Services",
   "Other",
 ] as const;
-
-export const founderStages: ReadonlyArray<{ value: FounderStage; label: string }> = [
-  { value: "pre-seed", label: "Pre-seed" },
-  { value: "seed", label: "Seed" },
-  { value: "series-a", label: "Series A" },
-];
 
 export type FounderField =
   | "startup_name"
@@ -87,26 +61,6 @@ export function isLinkedInProfileUrl(value: string): boolean {
   return LINKEDIN_PROFILE.test(value.trim());
 }
 
-const LAKH = 100_000;
-const CRORE = 10_000_000;
-
-export function parseAskAmount(input: string): number | null {
-  const cleaned = input.replace(/[₹,\s]/g, "").toLowerCase();
-  const match = /^(\d+(?:\.\d+)?)(k|l|lac|lakh|lakhs|cr|crore|crores)?$/.exec(cleaned);
-  if (!match) return null;
-  const unit = match[2];
-  const multiplier = !unit ? 1 : unit === "k" ? 1_000 : unit.startsWith("c") ? CRORE : LAKH;
-  const rupees = Math.round(Number(match[1]) * multiplier);
-  return rupees > 0 && rupees <= 100_000_000_000 ? rupees : null;
-}
-
-export function formatAskAmount(rupees: number): string {
-  const trim = (value: number) => Number(value.toFixed(2)).toString();
-  if (rupees >= CRORE) return `${trim(rupees / CRORE)}Cr`;
-  if (rupees >= LAKH) return `${trim(rupees / LAKH)}L`;
-  return rupees.toLocaleString("en-IN");
-}
-
 export function formatBytes(bytes: number): string {
   return bytes >= 1024 * 1024
     ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
@@ -123,7 +77,7 @@ export function draftToFormValues(
     stage: draft?.stage ?? "",
     city: draft?.city ?? "",
     business_model: draft?.business_model ?? "",
-    ask_amount: draft?.ask_amount_inr ? formatAskAmount(draft.ask_amount_inr) : "",
+    ask_amount: draft?.ask_amount_inr ? formatRupees(draft.ask_amount_inr) : "",
     team_size: draft?.team_size ? String(draft.team_size) : "",
     description: draft?.description ?? "",
     competitors: draft?.competitors ?? [],
@@ -160,7 +114,7 @@ export function validateFounderProfile(values: FounderFormValues): ValidationRes
   const businessModel = businessModels.find((option) => option === values.business_model);
   if (!businessModel) errors.business_model = "Choose a business model.";
 
-  const askAmount = parseAskAmount(values.ask_amount);
+  const askAmount = parseRupees(values.ask_amount);
   if (askAmount === null) errors.ask_amount = "Enter your ask like 40L, 1.5Cr, or 4000000.";
 
   const teamSize = Number(values.team_size);

@@ -51,5 +51,10 @@ export async function completeOnboarding(
     };
   }
 
-  redirect(role === "founder" ? "/onboarding/founder" : "/home");
+  const nextStep: Record<typeof role, string> = {
+    founder: "/onboarding/founder",
+    investor: "/onboarding/investor",
+    mentor: "/home",
+  };
+  redirect(nextStep[role]);
 }

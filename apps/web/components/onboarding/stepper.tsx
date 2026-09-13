@@ -1,9 +1,18 @@
 import { CheckIcon } from "@/components/icons";
 
-// Steps 3–4 (momentum sources, first post) ship with M5/M4.
-const steps = ["Your deck", "Review"] as const;
+// Founder steps 3–4 (momentum sources, first post) ship with M5/M4.
+const flows = {
+  founder: ["Your deck", "Review"],
+  investor: ["Thesis", "Prior investments"],
+} as const;
 
-export function OnboardingStepper({ current }: { current: 1 | 2 }) {
+type OnboardingStepperProps = {
+  flow: keyof typeof flows;
+  current: 1 | 2;
+};
+
+export function OnboardingStepper({ flow, current }: OnboardingStepperProps) {
+  const steps = flows[flow];
   return (
     <div className="flex flex-col items-center gap-3">
       <ol aria-label="Onboarding progress" className="flex items-center">

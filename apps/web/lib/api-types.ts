@@ -70,6 +70,75 @@ export type SaveProfileResponse = {
   profile_id: string;
 };
 
+export type InvestmentStage = "pre-seed" | "seed" | "series-a" | "series-b-plus";
+
+export type Geography =
+  | "bengaluru"
+  | "pune"
+  | "mumbai"
+  | "delhi-ncr"
+  | "hyderabad"
+  | "chennai"
+  | "india"
+  | "sea"
+  | "us"
+  | "global";
+
+export type ThesisRequest = {
+  sectors: string[];
+  stages: InvestmentStage[];
+  cheque_min: number;
+  cheque_max: number;
+  geographies: Geography[];
+  no_gos: string[];
+};
+
+export type ThesisData = {
+  sectors: string[];
+  stages: InvestmentStage[];
+  cheque_min: number | null;
+  cheque_max: number | null;
+  geographies: Geography[];
+  no_gos: string[];
+};
+
+export type ThesisResponse = {
+  thesis_id: string;
+};
+
+export type PriorInvestmentEntry = {
+  company: string;
+  sector: string;
+  stage: InvestmentStage;
+  cheque: number | null;
+  year: number;
+};
+
+export type PriorInvestmentItem = PriorInvestmentEntry & {
+  source: string;
+};
+
+export type PriorInvestmentsRequest = {
+  entries: PriorInvestmentEntry[];
+  hide_cheque_amounts: boolean;
+  crunchbase_url: string | null;
+};
+
+export type PriorInvestmentsResponse = {
+  count: number;
+};
+
+export type InvestorProfileState = {
+  profile_id: string;
+  completed: boolean;
+  thesis: ThesisData | null;
+  prior_investments: PriorInvestmentItem[];
+  hide_cheque_amounts: boolean;
+  crunchbase_url: string | null;
+  prior_investments_status: "added" | "skipped" | null;
+  banner_dismissed: boolean;
+};
+
 export type ProblemDetail = {
   type: string;
   title: string;
