@@ -222,7 +222,13 @@ From PRD Section 8 — all must be true:
 - Supabase project created, initial schema pushed (users + profiles + investor_thesis + mentor_expertise tables)
 - Clean GitHub repo with README
 
-**Status (2026-09-14):** Week 1 screens (S-01, S-02 + role/consent onboarding, S-09 shell) are built; Vercel/Railway deploy still pending. Now building M1 (S-03 upload, S-04 review). Decisions: LinkedIn URL is validated and stored only (no LinkedIn data fetch); decks are parsed in memory and not stored; image-only decks fall back to manual entry; onboarding stepper shows 2 steps until M4/M5 ship.
+**Status (2026-09-14):** Week 1 screens (S-01, S-02 + role/consent onboarding, S-09 shell) and M1 (S-03, S-04) are built; Vercel/Railway deploy still pending. Now building M2 (S-07 investor thesis + prior investments). Decisions:
+- The left-sidebar app shell (S-09) is canonical — ignore top-nav layouts that appear in some Stitch screens.
+- LinkedIn and Crunchbase URLs are validated and stored only (no data fetch or import).
+- Decks are parsed in memory and never stored; image-only decks fall back to manual entry.
+- Onboarding steppers show 2 steps (founder steps 3–4 ship with M5/M4).
+- Founders and investors share one sector taxonomy: `apps/api/app/models/taxonomy.py` ↔ `apps/web/lib/taxonomy.ts`.
+- Investor prior investments live in the `prior_investments` table; investor settings (hide cheques, Crunchbase URL, banner dismissal) live in `profiles.l1_data`.
 
 **Key change from original plan:** We are NOT using Lovable for scaffolding. Direct Claude Code from Day 1. This saves handoff friction but means Day 1-2 is spent on manual scaffolding instead of AI-generated scaffolding.
 

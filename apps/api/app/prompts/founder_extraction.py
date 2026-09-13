@@ -1,4 +1,5 @@
-from app.models.founder import BusinessModel, FounderSector, FounderStage
+from app.models.founder import BusinessModel
+from app.models.taxonomy import FounderStage, Sector
 
 PROMPT_VERSION = "founder-extraction-v1"
 # Keeps a typical deck well inside Groq free-tier token-per-minute limits.
@@ -17,7 +18,7 @@ Each key maps to an object {{"value": <value or null>, "confidence": <number fro
 
 Field rules:
 - startup_name: the company or product name as written in the deck.
-- sector: exactly one of [{_options([s.value for s in FounderSector])}]. Choose the closest; use "Other" if none fit.
+- sector: exactly one of [{_options([s.value for s in Sector])}]. Choose the closest; use "Other" if none fit.
 - stage: exactly one of [{_options([s.value for s in FounderStage])}]. Infer it from round language such as "pre-seed", "seed", or "Series A".
 - ask_amount_inr: the amount being raised in this round as an integer number of rupees (Rs 40L = 4000000, Rs 1.5Cr = 15000000). If only a USD amount is given, convert at 1 USD = 85 INR and use a confidence of at most 0.6.
 - team_size: integer number of full-time team members, founders included.

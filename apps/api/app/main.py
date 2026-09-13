@@ -12,7 +12,7 @@ from app.config import get_settings
 from app.errors import ProblemError, UpstreamServiceError, problem_response
 from app.middleware.auth import ClerkAuthMiddleware
 from app.models.common import ProblemDetail
-from app.routers import health, me, profiles
+from app.routers import health, investor, me, profiles
 
 settings = get_settings()
 logging.basicConfig(level=settings.log_level.upper())
@@ -102,3 +102,4 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 app.include_router(health.router)
 app.include_router(me.router)
 app.include_router(profiles.router)
+app.include_router(investor.router)

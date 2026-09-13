@@ -5,36 +5,9 @@ from uuid import UUID
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 
-# Keep these option lists in sync with apps/web/lib/founder-profile.ts.
+from app.models.taxonomy import FounderStage, Sector
 
-
-class FounderSector(StrEnum):
-    FINTECH = "Fintech"
-    SAAS = "SaaS"
-    AI_ML = "AI/ML"
-    CONSUMER = "Consumer"
-    D2C = "D2C"
-    HEALTHTECH = "Healthtech"
-    EDTECH = "Edtech"
-    AGRITECH = "Agritech"
-    CLIMATE_ENERGY = "Climate & Energy"
-    LOGISTICS = "Logistics"
-    MOBILITY = "Mobility"
-    DEEP_TECH = "Deep Tech"
-    ENTERPRISE = "Enterprise"
-    HR_TECH = "HR Tech"
-    PROPTECH = "Proptech"
-    GAMING = "Gaming"
-    MEDIA_CONTENT = "Media & Content"
-    CYBERSECURITY = "Cybersecurity"
-    LEGAL_TECH = "Legal Tech"
-    OTHER = "Other"
-
-
-class FounderStage(StrEnum):
-    PRE_SEED = "pre-seed"
-    SEED = "seed"
-    SERIES_A = "series-a"
+# Keep BusinessModel in sync with apps/web/lib/founder-profile.ts.
 
 
 class BusinessModel(StrEnum):
@@ -74,7 +47,7 @@ LinkedInUrl = Annotated[str, AfterValidator(normalize_linkedin_url)]
 
 class FounderProfileDraft(BaseModel):
     startup_name: str | None = None
-    sector: FounderSector | None = None
+    sector: Sector | None = None
     stage: FounderStage | None = None
     ask_amount_inr: int | None = None
     team_size: int | None = None
@@ -88,7 +61,7 @@ class FounderL1Data(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     startup_name: StartupName
-    sector: FounderSector
+    sector: Sector
     stage: FounderStage
     city: City
     business_model: BusinessModel

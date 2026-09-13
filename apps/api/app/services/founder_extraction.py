@@ -15,11 +15,10 @@ from app.models.founder import (
     City,
     CompetitorName,
     FounderProfileDraft,
-    FounderSector,
-    FounderStage,
     StartupName,
     TeamSize,
 )
+from app.models.taxonomy import FounderStage, Sector
 from app.prompts.founder_extraction import PROMPT_VERSION, SYSTEM_PROMPT, build_user_prompt
 from app.services.deck_reader import DeckText
 from app.services.llm import get_llm_client
@@ -46,7 +45,7 @@ _SCALAR_ADAPTERS: dict[str, TypeAdapter[Any]] = {
     ),
 }
 _ENUM_FIELDS: dict[str, type[StrEnum]] = {
-    "sector": FounderSector,
+    "sector": Sector,
     "stage": FounderStage,
     "business_model": BusinessModel,
 }

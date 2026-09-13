@@ -2,11 +2,10 @@ from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import ValidationError
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import ProblemError
-from app.models.db import AppRole, Profile, User
+from app.models.db import AppRole
 from app.models.founder import (
     AutobuildResponse,
     FounderDraftState,
@@ -16,22 +15,7 @@ from app.models.founder import (
 )
 from app.services.deck_reader import read_deck
 from app.services.founder_extraction import extract_founder_profile
-
-
-async def _get_founder_profile(session: AsyncSession, clerk_user_id: str) -> Profile:
-    profile = await session.scalar(
-        select(Profile)
-        .join(User, Profile.user_id == User.id)
-        .where(User.clerk_id == clerk_user_id, Profile.kind == AppRole.FOUNDER)
-    )
-    if profile is None:
-        raise ProblemError(
-            status=404,
-            slug="no-founder-profile",
-            title="Founder profile not found",
-            detail="Choose the founder role before building a founder profile.",
-        )
-    return profile
+from app.services.profile_lookup import get_role_profile
 
 
 def _draft_state(l1_data: dict[str, Any]) -> FounderDraftState | None:
@@ -45,7 +29,7 @@ def _draft_state(l1_data: dict[str, Any]) -> FounderDraftState | None:
 
 
 async def get_founder_state(session: AsyncSession, clerk_user_id: str) -> FounderProfileState:
-    profile = await _get_founder_profile(session, clerk_user_id)
+    profile = await get_role_profile(session, clerk_user_id, AppRole.FOUNDER)
     return FounderProfileState(
         profile_id=profile.id,
         completed=profile.l1_completed_at is not None,
@@ -61,7 +45,7 @@ async def autobuild_founder_profile(
     deck_filename: str,
     linkedin_url: str,
 ) -> AutobuildResponse:
-    profile = await _get_founder_profile(session, clerk_user_id)
+    profile = await get_role_profile(session, clerk_user_id, AppRole.FOUNDER)
     if profile.l1_completed_at is not None:
         raise ProblemError(
             status=409,
@@ -101,7 +85,7 @@ async def autobuild_founder_profile(
 async def save_founder_profile(
     session: AsyncSession, clerk_user_id: str, payload: SaveProfileRequest
 ) -> SaveProfileResponse:
-    profile = await _get_founder_profile(session, clerk_user_id)
+    profile = await get_role_profile(session, clerk_user_id, AppRole.FOUNDER)
     previous = profile.l1_data
     draft = _draft_state(previous)
 
