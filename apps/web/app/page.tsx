@@ -1,11 +1,23 @@
-// Placeholder until S-01 (Landing) is built from its Stitch screen.
-export default function HomePage() {
+import { Audiences } from "@/components/landing/audiences";
+import { CtaBand } from "@/components/landing/cta-band";
+import { DemoMatch } from "@/components/landing/demo-match";
+import { Hero } from "@/components/landing/hero";
+import { HowItWorks } from "@/components/landing/how-it-works";
+import { SiteFooter } from "@/components/landing/site-footer";
+import { SiteHeader } from "@/components/landing/site-header";
+
+export default function LandingPage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-4 px-6 py-24">
-      <h1>Startup Connect AI</h1>
-      <p className="text-muted">
-        The right investor. The right mentor. Matched by AI, explained clearly.
-      </p>
-    </main>
+    <>
+      <SiteHeader />
+      <main id="main">
+        <Hero />
+        <HowItWorks />
+        <DemoMatch />
+        <Audiences />
+        <CtaBand />
+      </main>
+      <SiteFooter />
+    </>
   );
 }

@@ -64,6 +64,13 @@ export const fontSize = {
   "hero-lg": ["56px", { lineHeight: "64px" }],
 } as const satisfies Record<string, [string, { lineHeight: string }]>;
 
+export const sizes = {
+  sidebar: "240px",
+  "auth-card": "480px",
+  empty: "400px",
+  content: "1200px",
+} as const;
+
 export const fontFamily = {
   sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
   heading: ["Georgia", "ui-serif", "serif"],

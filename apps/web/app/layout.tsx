@@ -14,14 +14,14 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Startup Connect AI",
+  title: { default: "Startup Connect AI", template: "%s · Startup Connect AI" },
   description:
     "Startup Connect AI helps early-stage founders find the mentors and investors who actually fit — with fit scores and reasoning, not endless directories.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider localization={{ dividerText: "or continue with email" }}>
       <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
         <body>{children}</body>
       </html>

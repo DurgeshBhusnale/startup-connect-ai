@@ -29,7 +29,7 @@ Project memory for Claude Code. You are helping Durgesh build **Startup Connect 
 
 | Layer | Choice | Why |
 |---|---|---|
-| Frontend | Next.js 14 (App Router) + TypeScript + Tailwind CSS | Modern React with SSR for SEO on landing pages |
+| Frontend | Next.js 15 (App Router) + React 19 + TypeScript + Tailwind CSS 3 | Modern React with SSR for SEO on landing pages (moved off 14: unpatched critical CVEs) |
 | Auth | Clerk (hosted) | LinkedIn + Google + email OAuth, MFA, sessions handled |
 | Backend API | FastAPI (Python 3.12) | Single process for v1; extract to services later |
 | Primary DB | Supabase Postgres | Managed; RLS policies for auth |
@@ -106,6 +106,8 @@ Project memory for Claude Code. You are helping Durgesh build **Startup Connect 
 - **Component naming:** PascalCase for components, camelCase for utilities, kebab-case for files (`match-card.tsx`)
 - **Imports order:** external libs → internal absolute imports (`@/lib/…`) → relative imports → types
 - **API calls** use a thin fetch wrapper in `lib/api.ts` — never call `fetch` directly from components
+- **Auth screens:** Clerk `<SignIn>` / `<SignUp>` rendered inside our S-02 card (styled via `components/auth/clerk-appearance.ts`). Role + DPDP consent are captured on `/onboarding` right after sign-up, then written by the API to `users`, `profiles`, `consent_log`
+- **Icons:** inline SVGs in `components/icons.tsx` (no icon library)
 
 ### Backend (FastAPI + Python)
 - **Python 3.12**, `ruff` for linting, `mypy` in strict mode
@@ -212,7 +214,7 @@ From PRD Section 8 — all must be true:
 **Week 1 goal:** By end of week, deploy a working shell where a user can sign up as any of 3 roles and land on their empty dashboard. Nothing else works yet — that's fine.
 
 **Week 1 deliverables:**
-- Next.js 14 + TypeScript + Tailwind scaffold, deployed to Vercel
+- Next.js 15 + TypeScript + Tailwind scaffold, deployed to Vercel
 - Clerk auth wired (LinkedIn + Google + email)
 - Landing page (S-01) matching Stitch designs
 - Sign Up / Sign In page (S-02) with role selector
