@@ -9,10 +9,10 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import get_settings
-from app.errors import UpstreamServiceError, problem_response
+from app.errors import ProblemError, UpstreamServiceError, problem_response
 from app.middleware.auth import ClerkAuthMiddleware
 from app.models.common import ProblemDetail
-from app.routers import health, me
+from app.routers import health, me, profiles
 
 settings = get_settings()
 logging.basicConfig(level=settings.log_level.upper())
@@ -60,6 +60,19 @@ async def validation_exception_handler(
     )
 
 
+@app.exception_handler(ProblemError)
+async def problem_error_handler(request: Request, exc: ProblemError) -> JSONResponse:
+    return problem_response(
+        ProblemDetail(
+            type=exc.type,
+            title=exc.title,
+            status=exc.status,
+            detail=exc.detail,
+            instance=request.url.path,
+        )
+    )
+
+
 @app.exception_handler(UpstreamServiceError)
 async def upstream_exception_handler(request: Request, exc: UpstreamServiceError) -> JSONResponse:
     logger.warning("Upstream failure on %s: %s", request.url.path, exc)
@@ -88,3 +101,4 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 app.include_router(health.router)
 app.include_router(me.router)
+app.include_router(profiles.router)

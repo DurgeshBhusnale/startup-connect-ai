@@ -36,7 +36,7 @@ Project memory for Claude Code. You are helping Durgesh build **Startup Connect 
 | Vector DB | Qdrant Cloud (1GB free tier) | Semantic search + matching |
 | Object storage | Cloudflare R2 | S3-compatible, cheap egress |
 | Job queue | Upstash Redis + BullMQ (or RQ for Python) | Managed |
-| LLM (primary) | Groq (Llama-3.1-70b) | Fastest inference; OpenAI-compatible API |
+| LLM (primary) | Groq (`openai/gpt-oss-120b`; Groq retired Llama 3.1-70b in Jan 2025 and 3.3-70b in Jun 2026) | Fastest inference; OpenAI-compatible API |
 | LLM (fallback) | OpenAI GPT-4o-mini / Anthropic Claude | For when Groq is down |
 | Embeddings | sentence-transformers/all-MiniLM-L6-v2 (384-dim) | Small, fast, MTEB leader for its size |
 | Frontend deploy | Vercel (Pro tier when needed) | Auto-deploys on push |
@@ -221,6 +221,8 @@ From PRD Section 8 — all must be true:
 - Empty app shell — sidebar + top nav (S-09 skeleton)
 - Supabase project created, initial schema pushed (users + profiles + investor_thesis + mentor_expertise tables)
 - Clean GitHub repo with README
+
+**Status (2026-09-14):** Week 1 screens (S-01, S-02 + role/consent onboarding, S-09 shell) are built; Vercel/Railway deploy still pending. Now building M1 (S-03 upload, S-04 review). Decisions: LinkedIn URL is validated and stored only (no LinkedIn data fetch); decks are parsed in memory and not stored; image-only decks fall back to manual entry; onboarding stepper shows 2 steps until M4/M5 ship.
 
 **Key change from original plan:** We are NOT using Lovable for scaffolding. Direct Claude Code from Day 1. This saves handoff friction but means Day 1-2 is spent on manual scaffolding instead of AI-generated scaffolding.
 

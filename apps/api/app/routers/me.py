@@ -1,22 +1,10 @@
-from typing import Annotated
+from fastapi import APIRouter, HTTPException
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.db.session import get_session
 from app.models.me import MeResponse, OnboardingRequest
+from app.routers.dependencies import ClerkUserId, SessionDep
 from app.services import onboarding
 
 router = APIRouter(prefix="/v1/me", tags=["me"])
-
-
-def get_clerk_user_id(request: Request) -> str:
-    user_id: str = request.state.user_id
-    return user_id
-
-
-SessionDep = Annotated[AsyncSession, Depends(get_session)]
-ClerkUserId = Annotated[str, Depends(get_clerk_user_id)]
 
 
 @router.get("", response_model=MeResponse)

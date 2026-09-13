@@ -60,6 +60,7 @@ class Profile(Base):
     l1_data: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
     ask_pin: Mapped[str | None] = mapped_column(Text)
     embedding_v: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    l1_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

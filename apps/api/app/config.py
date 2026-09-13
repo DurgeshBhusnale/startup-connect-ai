@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     clerk_api_url: str = "https://api.clerk.com/v1"
     consent_policy_version: str = "2026-09-13"
 
+    groq_api_key: str
+    groq_model: str = "openai/gpt-oss-120b"
+    llm_base_url: str = "https://api.groq.com/openai/v1"
+    llm_timeout_seconds: float = 45.0
+
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
