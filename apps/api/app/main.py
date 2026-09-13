@@ -9,8 +9,10 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import get_settings
+from app.errors import UpstreamServiceError, problem_response
+from app.middleware.auth import ClerkAuthMiddleware
 from app.models.common import ProblemDetail
-from app.routers import health
+from app.routers import health, me
 
 settings = get_settings()
 logging.basicConfig(level=settings.log_level.upper())
@@ -24,6 +26,8 @@ app = FastAPI(
     openapi_url=None if settings.is_production else "/openapi.json",
 )
 
+# Starlette runs the last-added middleware first: CORS must wrap auth so 401s carry CORS headers.
+app.add_middleware(ClerkAuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
@@ -31,14 +35,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-def problem_response(problem: ProblemDetail) -> JSONResponse:
-    return JSONResponse(
-        content=jsonable_encoder(problem, exclude_none=True),
-        status_code=problem.status,
-        media_type="application/problem+json",
-    )
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -64,6 +60,19 @@ async def validation_exception_handler(
     )
 
 
+@app.exception_handler(UpstreamServiceError)
+async def upstream_exception_handler(request: Request, exc: UpstreamServiceError) -> JSONResponse:
+    logger.warning("Upstream failure on %s: %s", request.url.path, exc)
+    return problem_response(
+        ProblemDetail(
+            title="Service Unavailable",
+            status=503,
+            detail="A service we depend on is unavailable. Try again shortly.",
+            instance=request.url.path,
+        )
+    )
+
+
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.exception("Unhandled error on %s", request.url.path)
@@ -78,3 +87,4 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 
 app.include_router(health.router)
+app.include_router(me.router)

@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     log_level: str = "info"
     cors_origins: str = "http://localhost:3000"
 
+    database_url: str
+    clerk_secret_key: str
+    clerk_api_url: str = "https://api.clerk.com/v1"
+    consent_policy_version: str = "2026-09-13"
+
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
