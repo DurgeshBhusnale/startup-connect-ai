@@ -51,5 +51,5 @@ export async function completeOnboarding(
     };
   }
 
-  redirect("/home");
+  redirect(role === "founder" ? "/onboarding/founder" : "/home");
 }

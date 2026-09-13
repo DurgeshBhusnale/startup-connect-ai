@@ -30,7 +30,7 @@ export default async function HomePage() {
           icon={<SparklesIcon className="h-8 w-8" />}
           title={copy.emptyTitle}
           body={copy.emptyBody}
-          action={{ href: "/profile", label: copy.cta }}
+          action={{ href: copy.ctaHref, label: copy.cta }}
         />
       </section>
     </div>

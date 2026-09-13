@@ -33,7 +33,13 @@ const config: Config = {
     ),
     extend: {
       width: { sidebar: sizes.sidebar },
-      maxWidth: { "auth-card": sizes["auth-card"], empty: sizes.empty, content: sizes.content },
+      maxWidth: {
+        "auth-card": sizes["auth-card"],
+        empty: sizes.empty,
+        content: sizes.content,
+        onboarding: sizes.onboarding,
+        "onboarding-wide": sizes["onboarding-wide"],
+      },
     },
   },
   plugins: [],

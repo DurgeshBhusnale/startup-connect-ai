@@ -224,6 +224,47 @@ export const HelpCircleIcon = createIcon(
   </>,
 );
 
+export const CheckIcon = createIcon("CheckIcon", <path d="M20 6 9 17l-5-5" />);
+
+export const MinusIcon = createIcon("MinusIcon", <path d="M5 12h14" />);
+
+export const PlusIcon = createIcon(
+  "PlusIcon",
+  <>
+    <path d="M5 12h14" />
+    <path d="M12 5v14" />
+  </>,
+);
+
+export const ChevronDownIcon = createIcon("ChevronDownIcon", <path d="m6 9 6 6 6-6" />);
+
+export const UploadCloudIcon = createIcon(
+  "UploadCloudIcon",
+  <>
+    <path d="M12 13v8" />
+    <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+    <path d="m8 17 4-4 4 4" />
+  </>,
+);
+
+export const TriangleAlertIcon = createIcon(
+  "TriangleAlertIcon",
+  <>
+    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+    <path d="M12 9v4" />
+    <path d="M12 17h.01" />
+  </>,
+);
+
+export const LinkedinIcon = createIcon(
+  "LinkedinIcon",
+  <>
+    <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+    <rect width="4" height="12" x="2" y="9" />
+    <circle cx="4" cy="4" r="2" />
+  </>,
+);
+
 export const LogoMarkIcon = createIcon(
   "LogoMarkIcon",
   <>

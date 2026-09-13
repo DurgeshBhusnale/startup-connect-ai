@@ -68,6 +68,8 @@ export const sizes = {
   sidebar: "240px",
   "auth-card": "480px",
   empty: "400px",
+  onboarding: "640px",
+  "onboarding-wide": "760px",
   content: "1200px",
 } as const;
 
