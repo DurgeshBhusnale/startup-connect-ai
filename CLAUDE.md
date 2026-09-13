@@ -203,7 +203,11 @@ From PRD Section 8 — all must be true:
 
 ## Current sprint state
 
-**We are in Week 1 of the 6-week plan.** See `docs/StartupConnectAI_6Week_Sprint_Plan.docx` for full context.
+**We are in Week 1 of the 6-week plan.**
+
+**Source of truth:** the PRD. `docs/StartupConnectAI_6Week_Sprint_Plan.docx` has story IDs and themes that contradict the PRD (e.g. it calls M2/M3 "profile management / match generation") — ignore it for scope and story definitions. The Week 1 deliverables below are authoritative.
+
+**Designs:** every screen exists in Google Stitch. Never guess a layout — before building a screen, ask Durgesh which Stitch screen to use and wait for the screenshot.
 
 **Week 1 goal:** By end of week, deploy a working shell where a user can sign up as any of 3 roles and land on their empty dashboard. Nothing else works yet — that's fine.
 
