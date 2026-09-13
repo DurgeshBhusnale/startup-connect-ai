@@ -1,4 +1,9 @@
-import type { FounderStage, Geography, InvestmentStage } from "@/lib/api-types";
+import type {
+  FounderStage,
+  Geography,
+  InvestmentStage,
+  MentorAvailability,
+} from "@/lib/api-types";
 
 // Shared by founders and investors so matching compares like with like.
 // Keep in sync with apps/api/app/models/taxonomy.py.
@@ -68,4 +73,38 @@ export const geographies: ReadonlyArray<{
   { value: "sea", label: "SEA", kind: "region" },
   { value: "us", label: "US", kind: "region" },
   { value: "global", label: "Global", kind: "region" },
+];
+
+export const expertiseAreas = [
+  "GTM",
+  "Product",
+  "Hiring",
+  "Fundraising",
+  "Engineering leadership",
+  "Design",
+  "Legal / compliance",
+  "Ops",
+  "PMF",
+  "ICP definition",
+  "Sales",
+  "Marketing",
+  "Community",
+  "Content",
+  "Data / analytics",
+  "Growth loops",
+  "Pricing",
+  "Enterprise sales",
+  "SEO",
+  "Paid acquisition",
+] as const;
+
+export const mentorAvailabilityOptions: ReadonlyArray<{
+  value: MentorAvailability;
+  label: string;
+  short: string;
+}> = [
+  { value: "1-per-month", label: "1 session per month", short: "1 session / month" },
+  { value: "2-per-month", label: "2 sessions per month (recommended)", short: "2 sessions / month" },
+  { value: "4-per-month", label: "4 sessions per month", short: "4 sessions / month" },
+  { value: "unlimited", label: "Unlimited (I’ll respond as I can)", short: "Unlimited" },
 ];

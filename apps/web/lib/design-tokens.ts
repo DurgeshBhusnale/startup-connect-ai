@@ -70,6 +70,7 @@ export const sizes = {
   empty: "400px",
   onboarding: "640px",
   "onboarding-wide": "760px",
+  modal: "560px",
   content: "1200px",
 } as const;
 

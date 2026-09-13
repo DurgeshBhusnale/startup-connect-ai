@@ -54,7 +54,7 @@ export async function completeOnboarding(
   const nextStep: Record<typeof role, string> = {
     founder: "/onboarding/founder",
     investor: "/onboarding/investor",
-    mentor: "/home",
+    mentor: "/onboarding/mentor",
   };
   redirect(nextStep[role]);
 }

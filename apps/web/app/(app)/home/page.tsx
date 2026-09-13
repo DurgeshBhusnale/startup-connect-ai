@@ -8,6 +8,7 @@ import { Greeting } from "@/components/ui/greeting";
 import { getFounderProfileState } from "@/lib/founder-profile-api";
 import { getInvestorProfileState } from "@/lib/investor-profile-api";
 import { getMe } from "@/lib/me";
+import { getMentorProfileState } from "@/lib/mentor-profile-api";
 import { buttonStyles, cardStyles } from "@/lib/ui";
 
 import { dismissPriorInvestmentsBanner } from "./actions";
@@ -70,11 +71,22 @@ async function loadHomeContent(role: AppRole): Promise<HomeContent> {
     };
   }
 
+  const state = await getMentorProfileState();
+  const subtitle = "Your mentoring workspace — founders who need your expertise will land here.";
+  if (state?.completed) {
+    return {
+      subtitle,
+      title: "You’re on the list",
+      body: "Matched founders will appear here as they seek mentorship in your expertise areas.",
+      action: { href: "/profile", label: "View your profile" },
+      showPriorInvestmentsBanner: false,
+    };
+  }
   return {
-    subtitle: "Your mentoring workspace — founders who need your expertise will land here.",
-    title: "You’re on the list",
-    body: "Matched founders will appear here as they seek mentorship in your expertise areas.",
-    action: { href: "/profile", label: "Set up your expertise" },
+    subtitle,
+    title: "Set up your mentor profile",
+    body: "Tell us where you can help so we only match you with founders who need it.",
+    action: { href: "/onboarding/mentor", label: "Set up your profile" },
     showPriorInvestmentsBanner: false,
   };
 }

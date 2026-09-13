@@ -139,6 +139,44 @@ export type InvestorProfileState = {
   banner_dismissed: boolean;
 };
 
+export type MentorAvailability = "1-per-month" | "2-per-month" | "4-per-month" | "unlimited";
+
+export type MentorExpertiseRequest = {
+  areas: string[];
+  stages: InvestmentStage[];
+  availability: MentorAvailability;
+  session_fee: number | null;
+};
+
+export type MentorExpertiseResponse = {
+  mentor_id: string;
+};
+
+export type VerificationRequest =
+  | { method: "linkedin"; payload: { linkedin_url: string } }
+  | { method: "references"; payload: { reference_emails: string[] } };
+
+export type VerificationResponse = {
+  status: "pending";
+};
+
+export type MentorExpertiseData = MentorExpertiseRequest;
+
+export type MentorVerificationState = {
+  method: "linkedin" | "references";
+  status: "pending";
+  linkedin_url: string | null;
+  reference_count: number;
+  requested_at: string;
+};
+
+export type MentorProfileState = {
+  profile_id: string;
+  completed: boolean;
+  expertise: MentorExpertiseData | null;
+  verification: MentorVerificationState | null;
+};
+
 export type ProblemDetail = {
   type: string;
   title: string;

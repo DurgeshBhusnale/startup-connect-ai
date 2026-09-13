@@ -39,6 +39,7 @@ const config: Config = {
         content: sizes.content,
         onboarding: sizes.onboarding,
         "onboarding-wide": sizes["onboarding-wide"],
+        modal: sizes.modal,
       },
     },
   },

@@ -350,7 +350,9 @@ export function PriorInvestmentsForm({
         </p>
       ) : null}
 
-      <div className="flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
+      {/* Save comes first in the DOM so pressing Enter in a row never triggers "Skip for now". */}
+      <div className="flex flex-col gap-3 border-t border-line pt-6 sm:flex-row-reverse sm:items-center sm:justify-between">
+        <SubmitButton label={completed ? "Save investments" : "Save & complete setup"} />
         {completed ? (
           <Link href="/home" className={buttonStyles.ghost}>
             Cancel
@@ -366,7 +368,6 @@ export function PriorInvestmentsForm({
             Skip for now
           </button>
         )}
-        <SubmitButton label={completed ? "Save investments" : "Save & complete setup"} />
       </div>
     </form>
   );
