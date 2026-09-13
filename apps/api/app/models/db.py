@@ -122,3 +122,20 @@ class PriorInvestment(Base):
     year: Mapped[int] = mapped_column(SmallInteger)
     source: Mapped[str] = mapped_column(Text, server_default=text("'manual'"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class MentorExpertise(Base):
+    __tablename__ = "mentor_expertise"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE"), unique=True
+    )
+    areas: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=text("'{}'"))
+    stages: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=text("'{}'"))
+    availability: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    session_fee: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

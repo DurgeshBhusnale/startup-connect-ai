@@ -222,13 +222,15 @@ From PRD Section 8 — all must be true:
 - Supabase project created, initial schema pushed (users + profiles + investor_thesis + mentor_expertise tables)
 - Clean GitHub repo with README
 
-**Status (2026-09-14):** Week 1 screens (S-01, S-02 + role/consent onboarding, S-09 shell) and M1 (S-03, S-04) are built; Vercel/Railway deploy still pending. Now building M2 (S-07 investor thesis + prior investments). Decisions:
+**Status (2026-09-14):** Week 1 screens (S-01, S-02 + role/consent onboarding, S-09 shell) and M1 (S-03, S-04) are built; Vercel/Railway deploy still pending. M2 (S-07) is built. Now building M3 (S-08 mentor onboarding, S-12 mentor profile). Decisions:
 - The left-sidebar app shell (S-09) is canonical — ignore top-nav layouts that appear in some Stitch screens.
 - LinkedIn and Crunchbase URLs are validated and stored only (no data fetch or import).
 - Decks are parsed in memory and never stored; image-only decks fall back to manual entry.
 - Onboarding steppers show 2 steps (founder steps 3–4 ship with M5/M4).
 - Founders and investors share one sector taxonomy: `apps/api/app/models/taxonomy.py` ↔ `apps/web/lib/taxonomy.ts`.
 - Investor prior investments live in the `prior_investments` table; investor settings (hide cheques, Crunchbase URL, banner dismissal) live in `profiles.l1_data`.
+- Mentor verification requests (LinkedIn URL or 2 founder reference emails) are stored as `pending` in `profiles.l1_data.verification`; no outreach and no verified badge until M6. S-12 shows no session stats, tabs, or response time until S3/S4/S7/S8 ship.
+- Screenshot sequence for upcoming modules (M3 → M6 → M7 → M8 → M9 → M10, then M4/M5 in Week 7+, then S1–S9) was agreed on 2026-09-14; M4/M5 stay deferred.
 
 **Key change from original plan:** We are NOT using Lovable for scaffolding. Direct Claude Code from Day 1. This saves handoff friction but means Day 1-2 is spent on manual scaffolding instead of AI-generated scaffolding.
 

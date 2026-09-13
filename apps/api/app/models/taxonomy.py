@@ -59,3 +59,33 @@ class Geography(StrEnum):
     SEA = "sea"
     US = "us"
     GLOBAL = "global"
+
+
+class ExpertiseArea(StrEnum):
+    GTM = "GTM"
+    PRODUCT = "Product"
+    HIRING = "Hiring"
+    FUNDRAISING = "Fundraising"
+    ENGINEERING_LEADERSHIP = "Engineering leadership"
+    DESIGN = "Design"
+    LEGAL_COMPLIANCE = "Legal / compliance"
+    OPS = "Ops"
+    PMF = "PMF"
+    ICP_DEFINITION = "ICP definition"
+    SALES = "Sales"
+    MARKETING = "Marketing"
+    COMMUNITY = "Community"
+    CONTENT = "Content"
+    DATA_ANALYTICS = "Data / analytics"
+    GROWTH_LOOPS = "Growth loops"
+    PRICING = "Pricing"
+    ENTERPRISE_SALES = "Enterprise sales"
+    SEO = "SEO"
+    PAID_ACQUISITION = "Paid acquisition"
+
+
+class MentorAvailability(StrEnum):
+    ONE_PER_MONTH = "1-per-month"
+    TWO_PER_MONTH = "2-per-month"
+    FOUR_PER_MONTH = "4-per-month"
+    UNLIMITED = "unlimited"
