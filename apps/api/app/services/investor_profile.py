@@ -15,7 +15,7 @@ from app.models.investor import (
     ThesisRequest,
     ThesisResponse,
 )
-from app.services.profile_lookup import get_role_profile
+from app.services.profile_lookup import get_role_profile, l1_text
 
 
 def _mark_onboarding_complete(profile: Profile) -> None:
@@ -71,6 +71,7 @@ async def get_investor_state(session: AsyncSession, clerk_user_id: str) -> Inves
         crunchbase_url=crunchbase_url if isinstance(crunchbase_url, str) else None,
         prior_investments_status=status if status in ("added", "skipped") else None,
         banner_dismissed=bool(settings.get("prior_investments_banner_dismissed", False)),
+        bio=l1_text(settings, "bio"),
     )
 
 

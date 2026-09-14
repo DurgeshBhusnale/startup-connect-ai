@@ -113,3 +113,4 @@ class InvestorProfileState(BaseModel):
     crunchbase_url: str | None
     prior_investments_status: Literal["added", "skipped"] | None
     banner_dismissed: bool
+    bio: str | None

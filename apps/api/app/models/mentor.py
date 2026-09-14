@@ -97,3 +97,4 @@ class MentorProfileState(BaseModel):
     completed: bool
     expertise: MentorExpertiseData | None
     verification: MentorVerificationState | None
+    bio: str | None

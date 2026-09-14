@@ -18,7 +18,7 @@ from app.models.mentor import (
     ReferencesVerificationRequest,
     VerificationResponse,
 )
-from app.services.profile_lookup import get_role_profile
+from app.services.profile_lookup import get_role_profile, l1_text
 
 
 async def _get_expertise(session: AsyncSession, profile: Profile) -> MentorExpertise | None:
@@ -70,6 +70,7 @@ async def get_mentor_state(session: AsyncSession, clerk_user_id: str) -> MentorP
         completed=profile.l1_completed_at is not None,
         expertise=_expertise_data(expertise),
         verification=_verification_state(profile.l1_data.get("verification")),
+        bio=l1_text(profile.l1_data, "bio"),
     )
 
 

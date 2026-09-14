@@ -89,6 +89,9 @@ class FounderProfileState(BaseModel):
     profile_id: UUID
     completed: bool
     draft: FounderDraftState | None
+    l1_data: FounderL1Data | None
+    bio: str | None
+    website: str | None
 
 
 class SaveProfileRequest(BaseModel):

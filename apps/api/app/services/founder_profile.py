@@ -9,13 +9,17 @@ from app.models.db import AppRole
 from app.models.founder import (
     AutobuildResponse,
     FounderDraftState,
+    FounderL1Data,
     FounderProfileState,
     SaveProfileRequest,
     SaveProfileResponse,
 )
 from app.services.deck_reader import read_deck
 from app.services.founder_extraction import extract_founder_profile
-from app.services.profile_lookup import get_role_profile
+from app.services.profile_lookup import get_role_profile, l1_text
+
+# Keys in l1_data that are not L1 fields and must survive a profile save.
+_PRESERVED_KEYS = ("raw_extraction", "extraction_confidence", "deck_filename", "bio", "website")
 
 
 def _draft_state(l1_data: dict[str, Any]) -> FounderDraftState | None:
@@ -28,12 +32,25 @@ def _draft_state(l1_data: dict[str, Any]) -> FounderDraftState | None:
         return None
 
 
+def _saved_l1(l1_data: dict[str, Any]) -> FounderL1Data | None:
+    values = {key: l1_data[key] for key in FounderL1Data.model_fields if key in l1_data}
+    if not values:
+        return None
+    try:
+        return FounderL1Data.model_validate(values)
+    except ValidationError:
+        return None
+
+
 async def get_founder_state(session: AsyncSession, clerk_user_id: str) -> FounderProfileState:
     profile = await get_role_profile(session, clerk_user_id, AppRole.FOUNDER)
     return FounderProfileState(
         profile_id=profile.id,
         completed=profile.l1_completed_at is not None,
         draft=_draft_state(profile.l1_data),
+        l1_data=_saved_l1(profile.l1_data) if profile.l1_completed_at else None,
+        bio=l1_text(profile.l1_data, "bio"),
+        website=l1_text(profile.l1_data, "website"),
     )
 
 
@@ -88,10 +105,22 @@ async def save_founder_profile(
     profile = await get_role_profile(session, clerk_user_id, AppRole.FOUNDER)
     previous = profile.l1_data
     draft = _draft_state(previous)
+    now = datetime.now(UTC).isoformat()
 
-    l1_data: dict[str, Any] = payload.l1_data.model_dump(mode="json")
-    if "raw_extraction" in previous:
-        l1_data["raw_extraction"] = previous["raw_extraction"]
+    new_values: dict[str, Any] = payload.l1_data.model_dump(mode="json")
+    previous_stamps = previous.get("field_updated_at")
+    # Per-field "last changed" times drive the M6 stale self-reported claim note.
+    field_updated_at: dict[str, Any] = (
+        dict(previous_stamps) if isinstance(previous_stamps, dict) else {}
+    )
+    for key, value in new_values.items():
+        if key not in field_updated_at or previous.get(key) != value:
+            field_updated_at[key] = now
+
+    l1_data: dict[str, Any] = {**new_values, "field_updated_at": field_updated_at}
+    for key in _PRESERVED_KEYS:
+        if key in previous:
+            l1_data[key] = previous[key]
     if draft is not None:
         l1_data["extraction_confidence"] = draft.confidence_map
         l1_data["deck_filename"] = draft.deck_filename

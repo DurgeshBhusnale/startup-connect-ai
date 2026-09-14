@@ -1,3 +1,5 @@
+from typing import Any
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,3 +21,8 @@ async def get_role_profile(session: AsyncSession, clerk_user_id: str, kind: AppR
             detail=f"Choose the {kind.value} role before setting up this profile.",
         )
     return profile
+
+
+def l1_text(l1_data: dict[str, Any], key: str) -> str | None:
+    value = l1_data.get(key)
+    return value if isinstance(value, str) and value else None

@@ -222,7 +222,7 @@ From PRD Section 8 — all must be true:
 - Supabase project created, initial schema pushed (users + profiles + investor_thesis + mentor_expertise tables)
 - Clean GitHub repo with README
 
-**Status (2026-09-14):** Week 1 screens (S-01, S-02 + role/consent onboarding, S-09 shell) and M1 (S-03, S-04) are built; Vercel/Railway deploy still pending. M2 (S-07) is built. Now building M3 (S-08 mentor onboarding, S-12 mentor profile). Decisions:
+**Status (2026-09-14):** Week 1 screens (S-01, S-02 + role/consent onboarding, S-09 shell) and M1 (S-03, S-04) are built; Vercel/Railway deploy still pending. M2 (S-07) and M3 (S-08, S-12) are built. Now building M6 as profile + badge groundwork (S-10, S-11). Decisions:
 - The left-sidebar app shell (S-09) is canonical — ignore top-nav layouts that appear in some Stitch screens.
 - LinkedIn and Crunchbase URLs are validated and stored only (no data fetch or import).
 - Decks are parsed in memory and never stored; image-only decks fall back to manual entry.
@@ -230,6 +230,7 @@ From PRD Section 8 — all must be true:
 - Founders and investors share one sector taxonomy: `apps/api/app/models/taxonomy.py` ↔ `apps/web/lib/taxonomy.ts`.
 - Investor prior investments live in the `prior_investments` table; investor settings (hide cheques, Crunchbase URL, banner dismissal) live in `profiles.l1_data`.
 - Mentor verification requests (LinkedIn URL or 2 founder reference emails) are stored as `pending` in `profiles.l1_data.verification`; no outreach and no verified badge until M6. S-12 shows no session stats, tabs, or response time until S3/S4/S7/S8 ship.
+- M6 ships as groundwork (decided 2026-09-14): `GET /v1/profiles/:id/badges` returns empty `verified_items` / `endorsed_items` until M5 / S8; self-reported claims show "Last updated" after 60 days, using `l1_data.field_updated_at` (founder fields) or table `updated_at` (thesis, expertise). Optional bio (all roles) and website (founders) live in `profiles.l1_data`.
 - Screenshot sequence for upcoming modules (M3 → M6 → M7 → M8 → M9 → M10, then M4/M5 in Week 7+, then S1–S9) was agreed on 2026-09-14; M4/M5 stay deferred.
 
 **Key change from original plan:** We are NOT using Lovable for scaffolding. Direct Claude Code from Day 1. This saves handoff friction but means Day 1-2 is spent on manual scaffolding instead of AI-generated scaffolding.

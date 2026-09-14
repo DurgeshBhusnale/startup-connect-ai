@@ -1,5 +1,6 @@
 from pathlib import PurePath
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, File, Form, UploadFile
 
@@ -11,8 +12,9 @@ from app.models.founder import (
     SaveProfileResponse,
     normalize_linkedin_url,
 )
+from app.models.profile import AboutRequest, AboutResponse, BadgesResponse
 from app.routers.dependencies import ClerkUserId, SessionDep
-from app.services import founder_profile
+from app.services import badges, founder_profile, profile_about
 
 router = APIRouter(prefix="/v1/profiles", tags=["profiles"])
 
@@ -63,3 +65,17 @@ async def save_profile(
     payload: SaveProfileRequest, session: SessionDep, clerk_user_id: ClerkUserId
 ) -> SaveProfileResponse:
     return await founder_profile.save_founder_profile(session, clerk_user_id, payload)
+
+
+@router.post("/about", response_model=AboutResponse)
+async def save_about(
+    payload: AboutRequest, session: SessionDep, clerk_user_id: ClerkUserId
+) -> AboutResponse:
+    return await profile_about.save_about(session, clerk_user_id, payload)
+
+
+@router.get("/{profile_id}/badges", response_model=BadgesResponse)
+async def read_profile_badges(
+    profile_id: UUID, session: SessionDep, clerk_user_id: ClerkUserId
+) -> BadgesResponse:
+    return await badges.get_profile_badges(session, clerk_user_id, profile_id)
