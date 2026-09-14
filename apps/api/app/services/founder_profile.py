@@ -51,6 +51,7 @@ async def get_founder_state(session: AsyncSession, clerk_user_id: str) -> Founde
         l1_data=saved_founder_l1(profile.l1_data) if profile.l1_completed_at else None,
         bio=l1_text(profile.l1_data, "bio"),
         website=l1_text(profile.l1_data, "website"),
+        ask_pin=profile.ask_pin,
     )
 
 

@@ -65,6 +65,7 @@ export type FounderProfileState = {
   l1_data: FounderL1Data | null;
   bio: string | null;
   website: string | null;
+  ask_pin: string | null;
 };
 
 export type SaveProfileRequest = {
@@ -210,6 +211,7 @@ export type MatchProfileCard = {
   location: string | null;
   bio: string | null;
   facts: string[];
+  ask_pin: string | null;
 };
 
 export type MatchExplanation = {
@@ -318,6 +320,11 @@ export type MeetingOutcomeContext = {
 export type MeetingOutcomeResponse = {
   status: "saved";
   outcome: OutcomeChoice;
+};
+
+export type AskPinResponse = {
+  status: "saved" | "cleared";
+  ask_pin: string | null;
 };
 
 export type MatchItem = {

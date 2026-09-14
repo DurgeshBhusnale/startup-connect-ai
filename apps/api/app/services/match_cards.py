@@ -20,6 +20,7 @@ def profile_card(snapshot: ProfileSnapshot) -> MatchProfileCard:
                 founder.business_model.value,
                 f"Team of {founder.team_size}",
             ],
+            ask_pin=snapshot.ask_pin,
         )
     if snapshot.thesis is not None:
         thesis = snapshot.thesis

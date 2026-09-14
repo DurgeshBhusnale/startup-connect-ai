@@ -24,6 +24,8 @@ class MatchProfileCard(BaseModel):
     location: str | None
     bio: str | None
     facts: list[str]
+    # Founders only (S9): the pinned "Currently asking for" line.
+    ask_pin: str | None = None
 
 
 # Stored shapes (matches.features / matches.explanation JSONB).

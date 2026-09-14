@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, File, Form, UploadFile
 
 from app.errors import ProblemError
+from app.models.ask_pin import AskPinRequest, AskPinResponse
 from app.models.founder import (
     AutobuildResponse,
     FounderProfileState,
@@ -14,7 +15,7 @@ from app.models.founder import (
 )
 from app.models.profile import AboutRequest, AboutResponse, BadgesResponse
 from app.routers.dependencies import ClerkUserId, SessionDep
-from app.services import badges, founder_profile, profile_about
+from app.services import ask_pin, badges, founder_profile, profile_about
 
 router = APIRouter(prefix="/v1/profiles", tags=["profiles"])
 
@@ -72,6 +73,18 @@ async def save_about(
     payload: AboutRequest, session: SessionDep, clerk_user_id: ClerkUserId
 ) -> AboutResponse:
     return await profile_about.save_about(session, clerk_user_id, payload)
+
+
+@router.post("/me/ask-pin", response_model=AskPinResponse)
+async def save_ask_pin(
+    payload: AskPinRequest, session: SessionDep, clerk_user_id: ClerkUserId
+) -> AskPinResponse:
+    return await ask_pin.save_ask_pin(session, clerk_user_id, payload)
+
+
+@router.delete("/me/ask-pin", response_model=AskPinResponse)
+async def clear_ask_pin(session: SessionDep, clerk_user_id: ClerkUserId) -> AskPinResponse:
+    return await ask_pin.clear_ask_pin(session, clerk_user_id)
 
 
 @router.get("/{profile_id}/badges", response_model=BadgesResponse)

@@ -92,6 +92,7 @@ class FounderProfileState(BaseModel):
     l1_data: FounderL1Data | None
     bio: str | None
     website: str | None
+    ask_pin: str | None
 
 
 class SaveProfileRequest(BaseModel):

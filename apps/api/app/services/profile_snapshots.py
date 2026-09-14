@@ -39,6 +39,7 @@ class ProfileSnapshot:
     expertise: MentorExpertiseData | None = None
     deals: list[PriorDeal] = field(default_factory=list)
     recent_posts: list[str] = field(default_factory=list)
+    ask_pin: str | None = None
 
     @property
     def bio(self) -> str | None:
@@ -121,6 +122,7 @@ async def _build(session: AsyncSession, rows: list[tuple[Profile, User]]) -> lis
             l1_data=profile.l1_data,
             deals=deals.get(profile.id, []),
             recent_posts=post_texts.get(profile.id, []),
+            ask_pin=profile.ask_pin,
         )
         if profile.kind == AppRole.FOUNDER:
             snapshot.founder = saved_founder_l1(profile.l1_data)

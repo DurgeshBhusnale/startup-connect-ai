@@ -6,6 +6,7 @@ import { formatRupees } from "@/lib/currency";
 import { founderStages } from "@/lib/taxonomy";
 import { buttonStyles, cardStyles, eyebrowStyles } from "@/lib/ui";
 
+import { AskPinBanner } from "./ask-pin-banner";
 import { ClaimStatus } from "./claim-status";
 import { ProfileAvatar } from "./profile-avatar";
 import { ProfileTabs } from "./profile-tabs";
@@ -28,6 +29,7 @@ type FounderProfileViewProps = {
   l1: FounderL1Data;
   bio: string | null;
   website: string | null;
+  askPin: string | null;
   badges: BadgesResponse;
   tab: string;
   /** Rendered on the Posts tab (M4 timeline). */
@@ -39,6 +41,7 @@ export function FounderProfileView({
   l1,
   bio,
   website,
+  askPin,
   badges,
   tab,
   postsPanel,
@@ -59,7 +62,9 @@ export function FounderProfileView({
   ];
 
   return (
-    <div className="mx-auto grid max-w-content gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-start">
+    <div className="mx-auto flex max-w-content flex-col gap-6">
+    <AskPinBanner text={askPin} editHref="/profile/edit#ask-pin" />
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-start">
       <aside className="flex flex-col gap-6">
         <section className={`${cardStyles} flex flex-col items-center p-6 text-center`}>
           <ProfileAvatar name={displayName} />
@@ -197,6 +202,7 @@ export function FounderProfileView({
           </section>
         )}
       </div>
+    </div>
     </div>
   );
 }

@@ -50,6 +50,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
         l1={state.l1_data}
         bio={state.bio}
         website={state.website}
+        askPin={state.ask_pin}
         badges={badges}
         tab={tab ?? "overview"}
         postsPanel={

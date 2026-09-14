@@ -10,6 +10,7 @@ import {
 } from "@/components/matches/match-explanation-panel";
 import { MatchOverview } from "@/components/matches/match-overview";
 import { PostTimeline } from "@/components/posts/post-timeline";
+import { AskPinBanner } from "@/components/profile/ask-pin-banner";
 import { ProfileAvatar } from "@/components/profile/profile-avatar";
 import { ProfileTabs } from "@/components/profile/profile-tabs";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -96,6 +97,7 @@ export default async function MatchDetailPage({ params, searchParams }: MatchDet
   return (
     <div className="mx-auto flex max-w-content flex-col gap-6">
       <BackLink />
+      <AskPinBanner text={profile.ask_pin} />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-start">
         <aside className={`${cardStyles} flex flex-col items-center p-6 text-center`}>
           <ProfileAvatar name={profile.display_name} />

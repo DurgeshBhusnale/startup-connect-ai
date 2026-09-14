@@ -6,9 +6,17 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 
 import { createPost, updatePost } from "@/app/(app)/profile/post-actions";
-import { AlignLeftIcon, FlagIcon, ImageIcon, UploadCloudIcon, XIcon } from "@/components/icons";
+import {
+  AlignLeftIcon,
+  FlagIcon,
+  ImageIcon,
+  TriangleAlertIcon,
+  UploadCloudIcon,
+  XIcon,
+} from "@/components/icons";
 import { ApiError, apiUpload } from "@/lib/api";
 import { formatBytes } from "@/lib/founder-profile";
+import { looksImplausible } from "@/lib/milestone-plausibility";
 import {
   ACCEPTED_IMAGE_TYPES,
   MAX_IMAGE_BYTES,
@@ -515,8 +523,22 @@ export function ComposePostDialog({ existing, onClose }: ComposePostDialogProps)
                   value={milestoneValue}
                   onChange={(event) => setMilestoneValue(event.target.value)}
                   placeholder="e.g. Crossed 1,000 paying users"
+                  aria-describedby={
+                    looksImplausible(milestoneType, milestoneValue) ? `${ids}-value-warning` : undefined
+                  }
                   className={fieldClass}
                 />
+                {looksImplausible(milestoneType, milestoneValue) ? (
+                  <p
+                    id={`${ids}-value-warning`}
+                    role="status"
+                    className="mt-2 flex items-start gap-2 rounded-md border border-alert-amber/40 bg-white p-2 text-meta text-ink"
+                  >
+                    <TriangleAlertIcon className="h-4 w-4 shrink-0 text-alert-amber" />
+                    That number looks unusually large. Double-check it before posting. You can still
+                    post it.
+                  </p>
+                ) : null}
               </div>
               <div>
                 <label htmlFor={`${ids}-date`} className={labelClass}>

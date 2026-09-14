@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { ArrowLeftIcon } from "@/components/icons";
 import { ProfileReviewForm } from "@/components/onboarding/profile-review-form";
+import { AskPinForm } from "@/components/profile/ask-pin-form";
 import { l1ToFormValues } from "@/lib/founder-profile";
 import { getFounderProfileState } from "@/lib/founder-profile-api";
 import { getMe } from "@/lib/me";
@@ -44,6 +45,21 @@ export default async function EditProfilePage() {
           These details decide which investors and mentors you’re matched with.
         </p>
       </div>
+      <section
+        id="ask-pin"
+        aria-labelledby="ask-pin-heading"
+        className={`${cardStyles} scroll-mt-24 p-6 sm:p-8`}
+      >
+        <h2 id="ask-pin-heading" className="text-h3">
+          Your ask
+        </h2>
+        <p className="mt-1 text-small text-muted">
+          Pin the one thing you need most right now so investors and mentors see it first.
+        </p>
+        <div className="mt-4">
+          <AskPinForm initialText={state.ask_pin} />
+        </div>
+      </section>
       <section className={`${cardStyles} p-6 sm:p-8`}>
         <ProfileReviewForm
           mode="edit"
