@@ -1,0 +1,219 @@
+# Startup Connect AI: Technical Handover & Deployment Guide
+
+Covers everything built through commit `b06654c` (MUST M1–M4, M6–M10; SHOULD S3–S9).
+No secret values are in this document. Real values live only in your local `.env` and in Vercel / Railway settings.
+
+---
+
+## 1. System at a glance
+
+| Part | Tech | Deploy target | Folder |
+|---|---|---|---|
+| Web app | Next.js 15.5, React 19, TypeScript, Tailwind 3 | **Vercel** | `apps/web` |
+| API | FastAPI (Python 3.12), SQLAlchemy async, uvicorn | **Railway** (web service) | `apps/api` |
+| Background jobs | Python scripts in `app/workers` | **Railway** (cron services) | `apps/api` |
+| Database + file storage | Supabase Postgres + Supabase Storage | Supabase (managed) | `supabase/migrations` |
+| Auth | Clerk | Clerk (managed) | n/a |
+| Vector search | Qdrant | **Qdrant Cloud** in production | n/a |
+| Embeddings | sentence-transformers `all-MiniLM-L6-v2` (runs inside the API, CPU) | Railway | n/a |
+| LLM | Groq, OpenAI-compatible API | Groq (managed) | n/a |
+| Scheduling | Cal.com embed (in the browser) | Cal.com (each user's own account) | n/a |
+
+Request flow: Browser → Vercel (Next.js server components and server actions) → Railway API (`https://<api>/v1/...`) with the Clerk session token → Supabase / Qdrant / Groq.
+Realtime messaging: Browser → `wss://<api>/v1/ws` directly.
+
+---
+
+## 2. Third-party providers
+
+| Provider | Used for | Status in code | Credentials / settings |
+|---|---|---|---|
+| **Supabase** | Postgres (all data), Storage bucket `post-media` (post images, private, signed URLs) | **In use** | `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` |
+| **Clerk** | Sign-up / sign-in (email, Google, LinkedIn), sessions, account settings modal, user deletion on purge | **In use** | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` (web + API), sign-in / up URL vars |
+| **Groq** | Deck extraction (M1), match explanations (M8), intro drafts (S5), post moderation (M4) | **In use** | `GROQ_API_KEY`, `GROQ_MODEL` (default `openai/gpt-oss-120b`); moderation model `openai/gpt-oss-safeguard-20b` |
+| **Qdrant** | Profile embeddings for matching (M7) | **In use** (embedded on-disk locally; **must be Qdrant Cloud in production**) | `QDRANT_URL`, `QDRANT_API_KEY`, `QDRANT_COLLECTION` (default `profiles`) |
+| **Hugging Face** (public model download) | Downloads the MiniLM model on first API start (~90 MB) | **In use**, no key needed | optional `HF_TOKEN` for higher rate limits |
+| **Cal.com** | Booking widget on `/matches/[id]/schedule` (S3) | **In use**, no platform key; each user pastes their own Cal.com link | none |
+| **GitHub** | Source repo, auto-deploy trigger for Vercel and Railway | **In use** | repo access |
+| Cloudflare R2 | Planned object storage | **Not used** (replaced by Supabase Storage) | `R2_*` in `.env` are unused, don't set in prod |
+| Upstash Redis | Planned job queue / pub-sub | **Not used yet** (needed if the API runs >1 instance) | `UPSTASH_*` unused |
+| OpenAI | Planned LLM fallback | **Not used** | `OPENAI_*` unused |
+| Clerk webhooks | n/a | **Not used** | `CLERK_WEBHOOK_SECRET` unused |
+| `NEXT_PUBLIC_SUPABASE_*`, `NEXT_PUBLIC_APP_URL` | n/a | **Not read by web code** | safe to omit |
+| SendGrid / Resend, 360dialog WhatsApp | Email / WhatsApp notifications | **Not built** (in-app only in v1) | none |
+
+> **Security action first:** keys were exposed earlier in development. Before production, **rotate** the Supabase service role key and DB password, the Clerk secret key, and the Groq API key, and use the new values only in Vercel / Railway.
+
+---
+
+## 3. Environment variables
+
+### 3.1 Railway: API service and all cron services (same variables)
+
+| Variable | Required | Value / notes |
+|---|---|---|
+| `ENVIRONMENT` | yes | `production` (also hides `/docs` and `/openapi.json`) |
+| `LOG_LEVEL` | no | `info` |
+| `DATABASE_URL` | yes | Supabase **transaction pooler** URL in SQLAlchemy form: `postgresql+asyncpg://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres` |
+| `SUPABASE_URL` | yes | `https://<project-ref>.supabase.co` |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes | Supabase → Project Settings → API → service_role (**secret**) |
+| `CLERK_SECRET_KEY` | yes | Clerk **production** instance secret key |
+| `CORS_ORIGINS` | yes | Comma-separated exact web origins, e.g. `https://startupconnect.ai,https://www.startupconnect.ai`. **Also used for** the Clerk token `azp` check and the WebSocket origin check, so a wrong value means every API call returns 401. |
+| `GROQ_API_KEY` | yes | Groq console key |
+| `GROQ_MODEL` | no | `openai/gpt-oss-120b` |
+| `QDRANT_URL` | **yes in prod** | Qdrant Cloud cluster URL (`https://xxxx.<region>.cloud.qdrant.io:6333`). If blank, the API writes vectors to the container disk and loses them on every redeploy. |
+| `QDRANT_API_KEY` | yes in prod | Qdrant Cloud API key |
+| `QDRANT_COLLECTION` | no | `profiles` |
+| `CONSENT_POLICY_VERSION` | no | default `2026-09-13`; must match `apps/web/lib/privacy.ts` |
+| `HF_TOKEN` | no | Hugging Face read token (avoids model download rate limits) |
+
+### 3.2 Vercel: web project
+
+| Variable | Required | Value / notes |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | yes | Railway API public URL, **no trailing slash**, e.g. `https://api.startupconnect.ai` |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | yes | Clerk production publishable key (`pk_live_...`) |
+| `CLERK_SECRET_KEY` | yes | Same Clerk production secret key |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | yes | `/sign-in` |
+| `NEXT_PUBLIC_CLERK_SIGN_UP_URL` | yes | `/sign-up` |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL` | yes | `/home` |
+| `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL` | yes | `/onboarding` |
+
+`NEXT_PUBLIC_*` values are baked in at build time, so **redeploy Vercel after changing them**.
+
+---
+
+## 4. Deployment steps (in this order)
+
+### Step 1: Supabase (database + storage)
+1. Create or choose the production project (Pro plan recommended so it doesn't pause and gets backups). Region: Mumbai (`ap-south-1`) for India.
+2. Project Settings → Database: note the password. Copy the **Transaction pooler** connection string (port **6543**).
+3. Apply all migrations from the repo root (15 files, `20260913120000_initial_schema.sql` → `20260917090000_endorsements.sql`):
+   ```bash
+   npx supabase db push --db-url "postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
+   ```
+   (Use `postgresql://`, not `+asyncpg`, for the CLI. Session port 5432 or the direct connection is safest for migrations.)
+4. Check: Table Editor shows `users, profiles, matches, intro_requests, notifications, posts, meetings, meeting_outcomes, messages, trust_scores, endorsements, ...`, and Storage shows the private bucket **`post-media`** (created by migration `20260915200000_posts.sql`).
+5. Copy `SUPABASE_URL` and the **service_role** key (API only, never the web app).
+
+### Step 2: Clerk (production instance)
+1. Clerk dashboard → create a **Production** instance (development keys must not be used in prod).
+2. Add your domain (e.g. `startupconnect.ai`) and create the DNS records Clerk lists (CNAMEs for `clerk.`, `accounts.`, email). Wait for verification.
+3. User & Authentication → enable **Email**, **Google**, **LinkedIn (OIDC)**. Production social logins need **your own** OAuth credentials:
+   - Google Cloud Console → OAuth client → redirect URI shown by Clerk.
+   - LinkedIn Developer app → "Sign In with LinkedIn using OpenID Connect" → redirect URI shown by Clerk.
+4. Optional: enable MFA (used by Settings → Account).
+5. Paths: sign-in `/sign-in`, sign-up `/sign-up`, after sign-up `/onboarding`, after sign-in `/home`.
+6. Copy `pk_live_...` and `sk_live_...`.
+
+### Step 3: Qdrant Cloud
+1. cloud.qdrant.io → create a Free 1 GB cluster (region close to Railway, e.g. AWS ap-south-1 or Singapore).
+2. Copy the cluster URL and create an API key.
+3. Nothing else to do: the API creates the `profiles` collection (384-dim) and fills it when users open Matches.
+
+### Step 4: Groq
+1. console.groq.com → API Keys → create a production key.
+2. Check that the project can use `openai/gpt-oss-120b` and `openai/gpt-oss-safeguard-20b`; enable billing for production limits.
+
+### Step 5: Railway, API service
+1. railway.app → New Project → **Deploy from GitHub repo** → select the repo.
+2. Service → Settings:
+   - **Root Directory:** `apps/api`
+   - **Builder:** Railpack / Nixpacks (auto-detects `requirements.txt`; the file includes the PyTorch CPU index, so no GPU wheels).
+   - **Python version:** add variable `NIXPACKS_PYTHON_VERSION=3.12` (or `RAILPACK_PYTHON_VERSION=3.12`), or add a `.python-version` file containing `3.12` to `apps/api`.
+   - **Start Command:**
+     ```bash
+     uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"
+     ```
+   - **Healthcheck Path:** `/health` (returns `{"status":"ok"}`), timeout 300 s (the first boot downloads the model).
+   - **Replicas: 1.** Realtime messaging (S6) keeps WebSocket connections in memory. With 2+ replicas, users on different instances won't get live messages until Redis pub-sub is added.
+   - Resources: at least **2 GB RAM** (torch + MiniLM ≈ 1–1.3 GB).
+3. Variables: add everything from §3.1.
+4. Networking → **Generate Domain** (or add a custom domain `api.startupconnect.ai` with Railway's CNAME). WebSockets work on Railway domains with no extra setting.
+5. Deploy and watch the logs until uvicorn reports "Application startup complete".
+6. Test: `curl https://<api-domain>/health` returns `{"status":"ok"}`. `curl https://<api-domain>/v1/me` returns 401 problem+json (expected without a token).
+
+### Step 6: Railway cron services (background jobs)
+Create **4 more services** in the same project, all from the same GitHub repo with **Root Directory `apps/api`** and the **same variables** (use Railway "Shared Variables" to avoid copying). For each: Settings → **Cron Schedule**, no domain, no healthcheck, Restart policy **Never**.
+
+| Service name | Start command | Cron (UTC) | What it does |
+|---|---|---|---|
+| `meeting-notifications` | `python -m app.workers.meeting_notifications` | `*/15 * * * *` | 24h and 1h meeting reminders; outcome prompt 2h after the meeting, final reminder at 7 days, outcome_unknown at 14 days (S3/S4) |
+| `compute-trust` | `python -m app.workers.compute_trust` | `30 20 * * *` (02:00 IST) | Nightly trust badges (S7) |
+| `purge-accounts` | `python -m app.workers.purge_accounts` | `0 21 * * *` (02:30 IST) | Hard-deletes accounts 30 days after deletion request; deletes Clerk user, profile data, vectors, storage (M10) |
+| `purge-posts` | `python -m app.workers.purge_posts` | `30 21 * * *` (03:00 IST) | Hard-deletes posts soft-deleted >30 days ago; removes unattached uploads >24h (M4) |
+
+Each job must exit when finished (they do). Check a run via the service's Deployments → logs (e.g. `trust_recompute_finished profiles=N`).
+
+### Step 7: Vercel, web app
+1. vercel.com → Add New → Project → import the GitHub repo.
+2. **Root Directory:** `apps/web`. Framework preset: **Next.js** (auto). Build `next build`, output default, install `npm install`. Node.js **20.x**.
+3. Environment Variables: everything from §3.2 (Production, plus Preview if you want preview deploys to work).
+4. Deploy. Then Settings → Domains → add `startupconnect.ai` (+ `www`) and set the DNS records Vercel shows.
+5. **Go back to Railway** and make sure `CORS_ORIGINS` contains the exact final web origin(s) (`https://startupconnect.ai`, plus `https://<project>.vercel.app` if you use it). Redeploy the API after changing it.
+
+### Step 8: Connect everything
+- Clerk → Domains / allowed origins includes the Vercel domain.
+- Vercel `NEXT_PUBLIC_API_URL` = Railway API domain → redeploy Vercel if changed.
+- Railway `CORS_ORIGINS` = Vercel domain(s) → redeploy the API if changed.
+
+---
+
+## 5. Post-deploy smoke test (15 minutes)
+
+1. Open the site: landing page loads; `/sign-up` shows the Clerk card.
+2. Sign up as a **founder** → `/onboarding`: pick role, accept consents → upload a text-based pitch-deck PDF and a LinkedIn URL → review screen is prefilled (this checks Groq) → save.
+3. Open **Matches** (the first load computes matches; this checks Qdrant and the embeddings). With no investors yet, the empty state is expected.
+4. In a second browser / incognito window, sign up as an **investor** (thesis: Fintech, Seed, a cheque range covering ₹40L, Pune) → open Matches → the founder appears with a % fit and an explanation.
+5. Founder: Request intro → Investor: Intro queue → Accept → both get notifications.
+6. **Messages:** send a message from one browser; it appears in the other within about a second (this checks the WebSocket and `CORS_ORIGINS`). Unread badge in the sidebar.
+7. Founder: Profile → New post → Image post (this checks Supabase Storage); text post moderation works.
+8. Settings → Privacy → Export my data downloads JSON.
+9. Railway logs show no 5xx; a cron run of `meeting-notifications` completes.
+
+If every API call fails with 401: `CORS_ORIGINS` doesn't exactly match the web origin (scheme and host, no trailing slash), or the Clerk keys are from different instances.
+If matches are empty after redeploys: `QDRANT_URL` is blank (vectors were on the container disk).
+If live messages don't arrive: more than one API replica, or a proxy that blocks WebSockets. The thread falls back to 10-second polling.
+
+---
+
+## 6. Local development (reference)
+
+```bash
+# Web
+cd apps/web && npm install && npm run dev        # http://localhost:3000
+
+# API (uv venv already at apps/api/.venv; Windows path shown)
+cd apps/api
+uv pip install --python .venv/Scripts/python.exe -r requirements.txt
+.venv/Scripts/python.exe -m uvicorn app.main:app --reload   # http://localhost:8000/docs
+
+# Migrations (from repo root)
+npx supabase db push --db-url "<postgres url>"
+```
+The API reads the repo-root `.env`. Blank `QDRANT_URL` locally = embedded Qdrant in `apps/api/.qdrant` (or similar local path).
+
+Quality checks before pushing:
+```bash
+cd apps/api && .venv/Scripts/python.exe -m ruff check app && .venv/Scripts/python.exe -m mypy app
+cd apps/web && npx tsc --noEmit && npx next build
+```
+
+---
+
+## 7. Operations notes and known limits
+
+| Topic | Current state | When to act |
+|---|---|---|
+| API scaling | 1 Railway replica (in-memory WebSocket hub) | Before scaling out, add Upstash Redis pub-sub in `app/services/realtime.py` |
+| Background queue | None; recompute and explanations run in-request / as FastAPI background tasks | Add RQ + Upstash when requests slow down |
+| Email / WhatsApp | Not built; notifications are in-app only | Week 7+ (SendGrid/Resend, 360dialog) |
+| Cal.com sync | Bookings recorded from the embed event; cancellations / reschedules in Cal.com are **not** synced | Add a "cancel/reschedule" action or Cal.com Platform webhooks |
+| Analytics | Events are written to API logs (`logger.info("event_name ...")`); no PostHog / Mixpanel yet | Week 6 analytics wiring |
+| Backups | Supabase Pro daily backups | Enable PITR later |
+| CI | None; Vercel and Railway auto-deploy on push to `main` | Add GitHub Actions: ruff, mypy, tsc, build |
+| Admin access | Supabase / Clerk / Railway / Vercel dashboards | Give each teammate their own login; don't share accounts |
+| Cost (1k users, est.) | Vercel Pro $20, Supabase Pro $25, Qdrant $0–25, Railway ~$20–30 (API + 4 crons), Groq ~$5, Clerk $0 | Review monthly |
+
+API routes live under `/v1` (see `apps/api/app/routers/*.py`); the OpenAPI UI is at `/docs` in non-production.
+Project conventions and every feature decision are in `CLAUDE.md`.
