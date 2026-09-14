@@ -1,5 +1,6 @@
 import re
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from typing import Annotated, Literal, Self
 from urllib.parse import urlsplit
 from uuid import UUID
@@ -110,3 +111,39 @@ class MeetingCreatedResponse(BaseModel):
 
 class NudgeResponse(BaseModel):
     status: Literal["sent", "already_sent"]
+
+
+class OutcomeChoice(StrEnum):
+    GREAT_FIT = "great_fit"
+    NOT_A_FIT = "not_a_fit"
+    UNDECIDED = "undecided"
+    # The meeting didn't happen: doesn't count against either party.
+    CANCELLED = "cancelled"
+
+
+class MeetingOutcomeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    outcome: OutcomeChoice
+    notes: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
+
+    @field_validator("notes")
+    @classmethod
+    def blank_is_none(cls, value: str | None) -> str | None:
+        return value or None
+
+
+class MeetingOutcomeResponse(BaseModel):
+    status: Literal["saved"]
+    outcome: OutcomeChoice
+
+
+class MeetingOutcomeContext(BaseModel):
+    meeting: MeetingItem
+    # The viewer's own match row, for "Back to match"; None if it has since been removed.
+    match_id: UUID | None
+    partner: MatchProfileCard
+    can_submit: bool
+    my_outcome: OutcomeChoice | None
+    my_notes: str | None
+    submitted_at: datetime | None

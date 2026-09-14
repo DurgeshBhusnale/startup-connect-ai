@@ -3,7 +3,11 @@ import { unstable_rethrow } from "next/navigation";
 import { isUuid, requireToken } from "@/lib/action-helpers";
 import { ApiError, apiRequest } from "@/lib/api";
 
-import type { SchedulingContext, SchedulingLinkResponse } from "@/lib/api-types";
+import type {
+  MeetingOutcomeContext,
+  SchedulingContext,
+  SchedulingLinkResponse,
+} from "@/lib/api-types";
 
 export type SchedulingContextResult =
   | { status: "ok"; context: SchedulingContext }
@@ -27,6 +31,31 @@ export async function getSchedulingContext(matchId: string): Promise<SchedulingC
       return { status: "private" };
     }
     console.error("Loading scheduling context failed", error);
+    return { status: "unavailable" };
+  }
+}
+
+export type MeetingOutcomeResult =
+  | { status: "ok"; context: MeetingOutcomeContext }
+  | { status: "missing" }
+  | { status: "unavailable" };
+
+export async function getMeetingOutcomeContext(meetingId: string): Promise<MeetingOutcomeResult> {
+  if (!isUuid(meetingId)) {
+    return { status: "missing" };
+  }
+  const token = await requireToken();
+  try {
+    const context = await apiRequest<MeetingOutcomeContext>(`/v1/meetings/${meetingId}/outcome`, {
+      token,
+    });
+    return { status: "ok", context };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
+      return { status: "missing" };
+    }
+    console.error("Loading meeting outcome failed", error);
     return { status: "unavailable" };
   }
 }

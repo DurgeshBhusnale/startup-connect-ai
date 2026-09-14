@@ -1,4 +1,13 @@
-import type { MeetingItem } from "@/lib/api-types";
+import type { MeetingItem, OutcomeChoice } from "@/lib/api-types";
+
+// Mirrors `OutcomeChoice` and `MeetingOutcomeRequest` in apps/api/app/models/meetings.py.
+export const OUTCOME_CHOICES: readonly OutcomeChoice[] = [
+  "great_fit",
+  "not_a_fit",
+  "undecided",
+  "cancelled",
+];
+export const OUTCOME_NOTES_MAX = 500;
 
 // Mirrors `SchedulingLinkRequest` in apps/api/app/models/meetings.py.
 const CAL_PATH = /^[A-Za-z0-9_.-]{1,64}(\/[A-Za-z0-9_.-]{1,64})?$/;

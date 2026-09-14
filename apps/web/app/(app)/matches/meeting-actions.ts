@@ -4,12 +4,14 @@ import { revalidatePath } from "next/cache";
 
 import { actionFailure, isUuid, requireToken } from "@/lib/action-helpers";
 import { apiRequest } from "@/lib/api";
-import { CAL_LINK_HINT, toCalLink } from "@/lib/meetings";
+import { CAL_LINK_HINT, OUTCOME_CHOICES, OUTCOME_NOTES_MAX, toCalLink } from "@/lib/meetings";
 
 import type { ActionResult } from "@/lib/action-helpers";
 import type {
   MeetingCreatedResponse,
+  MeetingOutcomeResponse,
   NudgeResponse,
+  OutcomeChoice,
   SchedulingLinkResponse,
 } from "@/lib/api-types";
 
@@ -83,6 +85,32 @@ export async function nudgeToSchedule(matchId: string): Promise<ActionResult<Nud
     return { ok: true, data: result };
   } catch (error) {
     return actionFailure(error, "Couldn’t send that right now. Try again.");
+  }
+}
+
+export async function submitMeetingOutcome(
+  meetingId: string,
+  outcome: OutcomeChoice,
+  notes: string,
+): Promise<ActionResult<MeetingOutcomeResponse>> {
+  if (!isUuid(meetingId) || !OUTCOME_CHOICES.includes(outcome)) {
+    return { ok: false, error: "This meeting no longer exists. Refresh and try again." };
+  }
+  const trimmed = typeof notes === "string" ? notes.trim() : "";
+  if (trimmed.length > OUTCOME_NOTES_MAX) {
+    return { ok: false, error: `Notes can be up to ${OUTCOME_NOTES_MAX} characters.` };
+  }
+  const token = await requireToken();
+  try {
+    const saved = await apiRequest<MeetingOutcomeResponse>(`/v1/meetings/${meetingId}/outcome`, {
+      method: "POST",
+      token,
+      body: { outcome, notes: trimmed || null },
+    });
+    revalidatePath("/meetings/[meetingId]/outcome", "page");
+    return { ok: true, data: saved };
+  } catch (error) {
+    return actionFailure(error, "Couldn’t save your outcome. Try again.");
   }
 }
 

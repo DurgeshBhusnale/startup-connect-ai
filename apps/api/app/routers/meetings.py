@@ -5,13 +5,16 @@ from fastapi import APIRouter
 from app.models.meetings import (
     MeetingCreatedResponse,
     MeetingCreateRequest,
+    MeetingOutcomeContext,
+    MeetingOutcomeRequest,
+    MeetingOutcomeResponse,
     NudgeResponse,
     SchedulingContext,
     SchedulingLinkRequest,
     SchedulingLinkResponse,
 )
 from app.routers.dependencies import ClerkUserId, SessionDep
-from app.services import meetings
+from app.services import meeting_outcomes, meetings
 
 router = APIRouter(tags=["meetings"])
 
@@ -35,6 +38,23 @@ async def create_meeting(
     body: MeetingCreateRequest, session: SessionDep, clerk_user_id: ClerkUserId
 ) -> MeetingCreatedResponse:
     return await meetings.create_meeting(session, clerk_user_id, body)
+
+
+@router.get("/v1/meetings/{meeting_id}/outcome", response_model=MeetingOutcomeContext)
+async def read_meeting_outcome(
+    meeting_id: UUID, session: SessionDep, clerk_user_id: ClerkUserId
+) -> MeetingOutcomeContext:
+    return await meeting_outcomes.get_outcome_context(session, clerk_user_id, meeting_id)
+
+
+@router.post("/v1/meetings/{meeting_id}/outcome", response_model=MeetingOutcomeResponse)
+async def submit_meeting_outcome(
+    meeting_id: UUID,
+    body: MeetingOutcomeRequest,
+    session: SessionDep,
+    clerk_user_id: ClerkUserId,
+) -> MeetingOutcomeResponse:
+    return await meeting_outcomes.submit_outcome(session, clerk_user_id, meeting_id, body)
 
 
 @router.get("/v1/profiles/me/scheduling-link", response_model=SchedulingLinkResponse)

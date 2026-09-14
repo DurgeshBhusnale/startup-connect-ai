@@ -5,6 +5,7 @@ import {
   CircleCheckIcon,
   ClockIcon,
   InboxIcon,
+  MessageSquareIcon,
   ShieldCheckIcon,
   SparklesIcon,
 } from "@/components/icons";
@@ -49,6 +50,7 @@ const kindStyles: Record<NotificationKind, { icon: IconComponent; tone: string }
   meeting_reminder: { icon: ClockIcon, tone: "bg-slate-100 text-ink" },
   meeting_invite: { icon: CalendarIcon, tone: "bg-emerald/10 text-emerald-deep" },
   scheduling_link_request: { icon: CalendarIcon, tone: "bg-alert-amber/10 text-alert-amber" },
+  meeting_outcome_prompt: { icon: MessageSquareIcon, tone: "bg-slate-100 text-ink" },
 };
 
 // Calendar days in IST, so "Today" matches what users in India see on the clock.

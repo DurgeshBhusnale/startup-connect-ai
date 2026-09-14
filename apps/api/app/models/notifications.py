@@ -17,6 +17,7 @@ class NotificationKind(StrEnum):
     MEETING_REMINDER = "meeting_reminder"
     MEETING_INVITE = "meeting_invite"
     SCHEDULING_LINK_REQUEST = "scheduling_link_request"
+    MEETING_OUTCOME_PROMPT = "meeting_outcome_prompt"
 
 
 class NotificationItem(BaseModel):

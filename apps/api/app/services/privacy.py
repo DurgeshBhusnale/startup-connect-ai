@@ -20,6 +20,7 @@ from app.models.db import (
     InvestorThesis,
     Match,
     Meeting,
+    MeetingOutcome,
     MentorExpertise,
     Notification,
     Post,
@@ -304,6 +305,10 @@ async def build_data_export(
                     Meeting.partner_profile_id.in_(profile_ids),
                 )
             ),
+        ),
+        # Only the user's own outcomes and notes; the other party's stay private.
+        "meeting_outcomes": await _dump(
+            session, select(MeetingOutcome).where(MeetingOutcome.profile_id.in_(profile_ids))
         ),
         "posts": await _dump(session, select(Post).where(Post.profile_id.in_(profile_ids))),
         "post_images": await _dump(

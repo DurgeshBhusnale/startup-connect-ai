@@ -293,6 +293,24 @@ class Meeting(Base):
     status: Mapped[str] = mapped_column(Text, server_default=text("'scheduled'"))
     reminder_24h_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reminder_1h_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    outcome_prompt_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    outcome_reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    outcome_unknown_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class MeetingOutcome(Base):
+    __tablename__ = "meeting_outcomes"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    meeting_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("meetings.id", ondelete="CASCADE"))
+    profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"))
+    outcome: Mapped[str] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

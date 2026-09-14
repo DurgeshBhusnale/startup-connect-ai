@@ -303,6 +303,23 @@ export type NudgeResponse = {
   status: "sent" | "already_sent";
 };
 
+export type OutcomeChoice = "great_fit" | "not_a_fit" | "undecided" | "cancelled";
+
+export type MeetingOutcomeContext = {
+  meeting: MeetingItem;
+  match_id: string | null;
+  partner: MatchProfileCard;
+  can_submit: boolean;
+  my_outcome: OutcomeChoice | null;
+  my_notes: string | null;
+  submitted_at: string | null;
+};
+
+export type MeetingOutcomeResponse = {
+  status: "saved";
+  outcome: OutcomeChoice;
+};
+
 export type MatchItem = {
   match_id: string;
   to_profile: MatchProfileCard;
@@ -423,7 +440,8 @@ export type NotificationKind =
   | "meeting_booked"
   | "meeting_reminder"
   | "meeting_invite"
-  | "scheduling_link_request";
+  | "scheduling_link_request"
+  | "meeting_outcome_prompt";
 
 export type NotificationItem = {
   id: string;
