@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     groq_model: str = "openai/gpt-oss-120b"
     llm_base_url: str = "https://api.groq.com/openai/v1"
     llm_timeout_seconds: float = 45.0
+    explanation_timeout_seconds: float = 12.0
+    # Sent as reasoning_effort for reasoning models (gpt-oss); leave blank for models without it.
+    llm_reasoning_effort: str = "low"
 
     # Blank QDRANT_URL uses embedded on-disk Qdrant (local dev); set it to use Qdrant Cloud.
     qdrant_url: str = ""

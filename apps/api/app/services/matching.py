@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from time import perf_counter
 from typing import Any
@@ -14,11 +15,31 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.db.session import get_session_factory
 from app.errors import ProblemError, UpstreamServiceError
-from app.models.db import AppRole, Match, Profile, User
-from app.models.matches import MatchExplanation, MatchItem, MatchProfileCard, RecomputeResponse
+from app.models.db import AppRole, Match, PriorInvestment, Profile, User
+from app.models.investor import PriorInvestmentItem
+from app.models.matches import (
+    ExplanationResponse,
+    FeatureScore,
+    FounderMatchDetails,
+    InvestorMatchDetails,
+    MatchDetailResponse,
+    MatchExplanation,
+    MatchItem,
+    MatchProfileCard,
+    MentorMatchDetails,
+    RecomputeResponse,
+    StoredExplanation,
+)
 from app.models.taxonomy import AVAILABILITY_LABELS, GEOGRAPHY_LABELS, STAGE_LABELS
 from app.services import embeddings, vector_store
+from app.services.badges import badges_for_profile
 from app.services.clerk import ClerkIdentity, fetch_clerk_identity
+from app.services.match_explanations import (
+    ExplanationError,
+    ExplanationState,
+    explanation_state,
+    generate_llm_explanation,
+)
 from app.services.match_scoring import (
     ContentScore,
     format_inr,
@@ -27,6 +48,7 @@ from app.services.match_scoring import (
     score_founder_investor,
     score_founder_mentor,
 )
+from app.services.profile_lookup import l1_text
 from app.services.profile_snapshots import (
     ProfileSnapshot,
     document_text,
@@ -38,8 +60,15 @@ from app.services.profile_snapshots import (
 logger = logging.getLogger(__name__)
 
 MIN_VISIBLE_FIT = 0.5
+MAX_VISIBLE_MATCHES = 8
 COLD_START_FEEDBACK_EVENTS = 10
 MAX_NAME_LOOKUPS = 25
+EXPLANATION_CONCURRENCY = 4
+# Bump when scoring features change so stored matches are recomputed on next view.
+SCORING_VERSION = 2
+
+# Match ids with an LLM explanation in flight in this process (avoids duplicate calls).
+_explaining: set[UUID] = set()
 
 
 def _unavailable() -> ProblemError:
@@ -48,6 +77,19 @@ def _unavailable() -> ProblemError:
         slug="matching-unavailable",
         title="Matching unavailable",
         detail="Finding matches for you. Check back in a few minutes.",
+    )
+
+
+def unavailable_error() -> ProblemError:
+    return _unavailable()
+
+
+def _match_not_found() -> ProblemError:
+    return ProblemError(
+        status=404,
+        slug="match-not-found",
+        title="This profile is private",
+        detail="Profiles are only visible to people who have been matched with each other.",
     )
 
 
@@ -67,7 +109,7 @@ def _score_pair(
     if partner.thesis is not None:
         if not investor_filter(founder, partner.thesis):
             return None
-        return score_founder_investor(founder, partner.thesis, similarity)
+        return score_founder_investor(founder, partner.thesis, partner.deals, similarity)
     if partner.expertise is not None:
         if not mentor_filter(founder, partner.expertise):
             return None
@@ -151,6 +193,14 @@ async def compute_matches(session: AsyncSession, clerk_user_id: str) -> Recomput
     ]
     await _ensure_display_names(session, [viewer, *candidates])
     similarities = await _semantic_similarities(viewer, candidates) if candidates else {}
+    existing_explanations: dict[UUID, dict[str, Any]] = {
+        row.to_profile_id: row.explanation
+        for row in await session.execute(
+            select(Match.to_profile_id, Match.explanation).where(
+                Match.from_profile_id == viewer.profile_id
+            )
+        )
+    }
 
     # Feedback events (M9) don't exist yet, so every viewer is cold-start: alpha = 1.0.
     alpha = ranking_alpha(feedback_events=0)
@@ -161,6 +211,13 @@ async def compute_matches(session: AsyncSession, clerk_user_id: str) -> Recomput
         content = _score_pair(viewer, candidate, similarity)
         if content is None:
             continue
+        features = content.breakdown()
+        # Keeps a cached (LLM) explanation while the signals are unchanged; otherwise a template.
+        state = explanation_state(
+            existing_explanations.get(candidate.profile_id), features, viewer.kind
+        )
+        if state is None:
+            continue
         rows.append(
             {
                 "from_profile_id": viewer.profile_id,
@@ -168,8 +225,8 @@ async def compute_matches(session: AsyncSession, clerk_user_id: str) -> Recomput
                 "fit_score": round(alpha * content.score + (1 - alpha) * collab_score, 4),
                 "content_score": content.score,
                 "collab_score": collab_score,
-                "explanation": content.template_explanation(),
-                "features": content.breakdown(),
+                "explanation": state.stored.model_dump(mode="json"),
+                "features": features,
             }
         )
 
@@ -201,6 +258,7 @@ async def compute_matches(session: AsyncSession, clerk_user_id: str) -> Recomput
             "matching": {
                 "computed_at": datetime.now(UTC).isoformat(),
                 "embedding_v": viewer.embedding_v,
+                "scoring_v": SCORING_VERSION,
                 "candidates": len(rows),
                 "semantic": similarities is not None,
             },
@@ -215,17 +273,103 @@ async def compute_matches(session: AsyncSession, clerk_user_id: str) -> Recomput
     return RecomputeResponse(count=len(rows))
 
 
+async def _refresh_explanations(
+    session: AsyncSession, viewer: ProfileSnapshot, matches: Sequence[Match]
+) -> dict[UUID, StoredExplanation]:
+    """Generates LLM explanations where the stored one is a template; failures keep the template."""
+    targets: list[tuple[Match, ExplanationState]] = []
+    for match in matches:
+        state = explanation_state(match.explanation, match.features, viewer.kind)
+        if state is not None and state.needs_llm and match.id not in _explaining:
+            targets.append((match, state))
+    if not targets:
+        return {}
+
+    for match, _ in targets:
+        _explaining.add(match.id)
+    results: dict[UUID, StoredExplanation] = {}
+    try:
+        snapshots = await load_by_ids(session, [match.to_profile_id for match, _ in targets])
+        limiter = asyncio.Semaphore(EXPLANATION_CONCURRENCY)
+
+        async def explain(match: Match, state: ExplanationState) -> None:
+            candidate = snapshots.get(match.to_profile_id)
+            if candidate is None:
+                return
+            started = perf_counter()
+            async with limiter:
+                try:
+                    result = await generate_llm_explanation(viewer, candidate, state)
+                except ExplanationError as exc:
+                    logger.warning("LLM explanation failed for match %s: %s", match.id, exc)
+                    result = state.stored.model_copy(update={"llm_failed_at": datetime.now(UTC)})
+            match.explanation = result.model_dump(mode="json")
+            results[match.id] = result
+            # Analytics event (PRD M8) until the analytics pipeline is wired in Week 6.
+            logger.info(
+                "explanation_generated match_id=%s source=%s duration_ms=%d",
+                match.id,
+                result.source,
+                (perf_counter() - started) * 1000,
+            )
+
+        await asyncio.gather(*(explain(match, state) for match, state in targets))
+        await session.commit()
+    finally:
+        for match, _ in targets:
+            _explaining.discard(match.id)
+    return results
+
+
+async def _visible_matches(
+    session: AsyncSession, viewer: ProfileSnapshot, limit: int
+) -> Sequence[Match]:
+    return (
+        await session.scalars(
+            select(Match)
+            .where(Match.from_profile_id == viewer.profile_id, Match.fit_score >= MIN_VISIBLE_FIT)
+            .order_by(Match.fit_score.desc())
+            .limit(limit)
+        )
+    ).all()
+
+
+async def explain_in_background(clerk_user_id: str, match_ids: list[UUID] | None = None) -> None:
+    try:
+        async with get_session_factory()() as session:
+            viewer = await load_viewer(session, clerk_user_id)
+            if viewer is None:
+                return
+            if match_ids is None:
+                matches = await _visible_matches(session, viewer, MAX_VISIBLE_MATCHES)
+            else:
+                matches = (
+                    await session.scalars(
+                        select(Match).where(
+                            Match.id.in_(match_ids), Match.from_profile_id == viewer.profile_id
+                        )
+                    )
+                ).all()
+            await _refresh_explanations(session, viewer, matches)
+    except Exception:  # background work must never crash the worker
+        logger.exception("Background explanation generation failed")
+
+
 async def recompute_in_background(clerk_user_id: str) -> None:
     try:
         async with get_session_factory()() as session:
             await compute_matches(session, clerk_user_id)
     except Exception:  # background refresh must never crash the worker
         logger.exception("Background match recompute failed")
+        return
+    await explain_in_background(clerk_user_id)
 
 
 def _needs_recompute(viewer: ProfileSnapshot) -> bool:
     meta = viewer.l1_data.get("matching")
     if not isinstance(meta, dict) or meta.get("embedding_v") != viewer.embedding_v:
+        return True
+    if meta.get("scoring_v") != SCORING_VERSION:
         return True
     try:
         computed_at = datetime.fromisoformat(str(meta.get("computed_at")))
@@ -288,15 +432,6 @@ def _card(snapshot: ProfileSnapshot) -> MatchProfileCard:
     )
 
 
-def _explanation(raw: dict[str, Any]) -> MatchExplanation:
-    try:
-        return MatchExplanation.model_validate(raw)
-    except ValidationError:
-        return MatchExplanation(
-            source="template", short="Matched on your stated criteria", features_used=[]
-        )
-
-
 async def list_matches(
     session: AsyncSession, clerk_user_id: str, limit: int, background: BackgroundTasks
 ) -> list[MatchItem]:
@@ -319,28 +454,147 @@ async def list_matches(
                 logger.exception("On-demand match computation failed")
                 raise _unavailable() from exc
 
-    matches = (
-        await session.scalars(
-            select(Match)
-            .where(Match.from_profile_id == viewer.profile_id, Match.fit_score >= MIN_VISIBLE_FIT)
-            .order_by(Match.fit_score.desc())
-            .limit(limit)
-        )
-    ).all()
+    matches = await _visible_matches(session, viewer, limit)
     snapshots = await load_by_ids(session, [match.to_profile_id for match in matches])
-    return [
-        MatchItem(
-            match_id=match.id,
-            to_profile=_card(snapshots[match.to_profile_id]),
-            fit_score=match.fit_score,
-            content_score=match.content_score,
-            collab_score=match.collab_score,
-            explanation=_explanation(match.explanation),
+    items: list[MatchItem] = []
+    pending: list[UUID] = []
+    for match in matches:
+        candidate = snapshots.get(match.to_profile_id)
+        state = explanation_state(match.explanation, match.features, viewer.kind)
+        if candidate is None or not candidate.matchable or state is None:
+            continue
+        if state.needs_llm and match.id not in _explaining:
+            pending.append(match.id)
+        items.append(
+            MatchItem(
+                match_id=match.id,
+                to_profile=_card(candidate),
+                fit_score=match.fit_score,
+                content_score=match.content_score,
+                collab_score=match.collab_score,
+                explanation=MatchExplanation(
+                    source=state.stored.source,
+                    short=state.stored.short,
+                    features_used=state.stored.features_used,
+                ),
+            )
         )
-        for match in matches
-        if match.to_profile_id in snapshots and snapshots[match.to_profile_id].matchable
-    ]
+    # Cards show the template sentence now; LLM explanations replace it on the next view (M8 AC4).
+    if pending:
+        background.add_task(explain_in_background, clerk_user_id, pending)
+    return items
 
 
-def unavailable_error() -> ProblemError:
-    return _unavailable()
+async def _owned_match(
+    session: AsyncSession, clerk_user_id: str, match_id: UUID
+) -> tuple[ProfileSnapshot, Match, ProfileSnapshot]:
+    """Match Detail is visible only through the viewer's own match row (M10 AC7)."""
+    viewer = await load_viewer(session, clerk_user_id)
+    if viewer is None:
+        raise _match_not_found()
+    if _needs_recompute(viewer):
+        await compute_matches(session, clerk_user_id)
+    match: Match | None = await session.scalar(
+        select(Match).where(Match.id == match_id, Match.from_profile_id == viewer.profile_id)
+    )
+    if match is None:
+        raise _match_not_found()
+    candidate = (await load_by_ids(session, [match.to_profile_id])).get(match.to_profile_id)
+    if candidate is None or not candidate.matchable:
+        raise _match_not_found()
+    return viewer, match, candidate
+
+
+async def _prior_investments(
+    session: AsyncSession, candidate: ProfileSnapshot, hidden: bool
+) -> list[PriorInvestmentItem]:
+    items: list[PriorInvestmentItem] = []
+    for row in await session.scalars(
+        select(PriorInvestment)
+        .where(PriorInvestment.profile_id == candidate.profile_id)
+        .order_by(PriorInvestment.year.desc(), PriorInvestment.created_at)
+    ):
+        try:
+            items.append(
+                PriorInvestmentItem(
+                    company=row.company_name,
+                    sector=row.sector,
+                    stage=row.stage,
+                    cheque=None if hidden else row.cheque_inr,
+                    year=row.year,
+                    source=row.source,
+                )
+            )
+        except ValidationError:
+            logger.warning("Skipping invalid prior investment row %s", row.id)
+    return items
+
+
+async def get_match_detail(
+    session: AsyncSession, clerk_user_id: str, match_id: UUID
+) -> MatchDetailResponse:
+    viewer, match, candidate = await _owned_match(session, clerk_user_id, match_id)
+    details: FounderMatchDetails | InvestorMatchDetails | MentorMatchDetails
+    if candidate.founder is not None:
+        details = FounderMatchDetails(
+            l1=candidate.founder, website=l1_text(candidate.l1_data, "website")
+        )
+    elif candidate.thesis is not None:
+        hidden = bool(candidate.l1_data.get("hide_cheque_amounts", True))
+        details = InvestorMatchDetails(
+            thesis=candidate.thesis,
+            prior_investments=await _prior_investments(session, candidate, hidden),
+            cheques_hidden=hidden,
+        )
+    elif candidate.expertise is not None:
+        details = MentorMatchDetails(expertise=candidate.expertise)
+    else:
+        raise _match_not_found()
+
+    profile = await session.get(Profile, candidate.profile_id)
+    if profile is None:
+        raise _match_not_found()
+    state = explanation_state(match.explanation, match.features, viewer.kind)
+    scoring = (
+        [
+            FeatureScore(
+                feature=name, label=feature.label, score=feature.score, weight=feature.weight
+            )
+            for name, feature in state.features.items()
+        ]
+        if state is not None
+        else []
+    )
+    return MatchDetailResponse(
+        match_id=match.id,
+        fit_score=match.fit_score,
+        content_score=match.content_score,
+        collab_score=match.collab_score,
+        updated_at=match.updated_at,
+        to_profile=_card(candidate),
+        details=details,
+        scoring=scoring,
+        badges=await badges_for_profile(session, profile),
+    )
+
+
+async def get_match_explanation(
+    session: AsyncSession, clerk_user_id: str, match_id: UUID
+) -> ExplanationResponse:
+    viewer, match, _ = await _owned_match(session, clerk_user_id, match_id)
+    state = explanation_state(match.explanation, match.features, viewer.kind)
+    if state is None:
+        raise _unavailable()
+    stored = state.stored
+    if state.needs_llm:
+        # Generated inline on first open; a timeout or error falls back to the template (M8 AC4).
+        stored = (await _refresh_explanations(session, viewer, [match])).get(match.id, stored)
+    return ExplanationResponse(
+        match_id=match.id,
+        source=stored.source,
+        short=stored.short,
+        full=stored.full,
+        features_used=stored.features_used,
+        citations=stored.citations,
+        generated_at=stored.generated_at,
+    )

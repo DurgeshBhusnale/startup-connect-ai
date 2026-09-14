@@ -12,6 +12,7 @@ from app.models.investor import ThesisData
 from app.models.mentor import MentorExpertiseData
 from app.models.taxonomy import GEOGRAPHY_LABELS, STAGE_LABELS
 from app.services.founder_profile import saved_founder_l1
+from app.services.match_scoring import PriorDeal
 from app.services.mentor_profile import expertise_data
 from app.services.profile_lookup import l1_text
 
@@ -28,7 +29,7 @@ class ProfileSnapshot:
     founder: FounderL1Data | None = None
     thesis: ThesisData | None = None
     expertise: MentorExpertiseData | None = None
-    deals: list[str] = field(default_factory=list)
+    deals: list[PriorDeal] = field(default_factory=list)
 
     @property
     def bio(self) -> str | None:
@@ -50,7 +51,7 @@ async def _build(session: AsyncSession, rows: list[tuple[Profile, User]]) -> lis
     investor_ids = [profile.id for profile, _ in rows if profile.kind == AppRole.INVESTOR]
     mentor_ids = [profile.id for profile, _ in rows if profile.kind == AppRole.MENTOR]
     theses: dict[UUID, InvestorThesis] = {}
-    deals: dict[UUID, list[str]] = {}
+    deals: dict[UUID, list[PriorDeal]] = {}
     if investor_ids:
         theses = {
             thesis.profile_id: thesis
@@ -63,7 +64,9 @@ async def _build(session: AsyncSession, rows: list[tuple[Profile, User]]) -> lis
             .where(PriorInvestment.profile_id.in_(investor_ids))
             .order_by(PriorInvestment.year.desc())
         ):
-            deals.setdefault(deal.profile_id, []).append(f"{deal.company_name} ({deal.sector})")
+            deals.setdefault(deal.profile_id, []).append(
+                PriorDeal(company=deal.company_name, sector=deal.sector, stage=deal.stage)
+            )
     expertise_rows: dict[UUID, MentorExpertise] = {}
     if mentor_ids:
         expertise_rows = {
@@ -167,7 +170,8 @@ def document_text(snapshot: ProfileSnapshot) -> str:
             f"in {', '.join(GEOGRAPHY_LABELS[geo] for geo in thesis.geographies)}.",
         ]
         if snapshot.deals:
-            parts.append(f"Past investments: {', '.join(snapshot.deals[:10])}.")
+            deals = ", ".join(f"{deal.company} ({deal.sector})" for deal in snapshot.deals[:10])
+            parts.append(f"Past investments: {deals}.")
         if thesis.no_gos:
             parts.append(f"Avoids: {', '.join(thesis.no_gos)}.")
     elif snapshot.expertise is not None:

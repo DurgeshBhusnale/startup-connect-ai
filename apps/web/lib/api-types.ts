@@ -215,6 +215,53 @@ export type MatchExplanation = {
   features_used: string[];
 };
 
+export type CitationSource =
+  | "founder_profile"
+  | "investor_thesis"
+  | "investor_portfolio"
+  | "mentor_expertise";
+
+export type Citation = {
+  value: string;
+  sources: CitationSource[];
+};
+
+export type ExplanationResponse = MatchExplanation & {
+  match_id: string;
+  full: { positives: string[]; concerns: string[] };
+  citations: Citation[];
+  generated_at: string;
+};
+
+export type FeatureScore = {
+  feature: string;
+  label: string;
+  score: number;
+  weight: number;
+};
+
+export type MatchDetails =
+  | { kind: "founder"; l1: FounderL1Data; website: string | null }
+  | {
+      kind: "investor";
+      thesis: ThesisData;
+      prior_investments: PriorInvestmentItem[];
+      cheques_hidden: boolean;
+    }
+  | { kind: "mentor"; expertise: MentorExpertiseData };
+
+export type MatchDetailResponse = {
+  match_id: string;
+  fit_score: number;
+  content_score: number;
+  collab_score: number;
+  updated_at: string;
+  to_profile: MatchProfileCard;
+  details: MatchDetails;
+  scoring: FeatureScore[];
+  badges: BadgesResponse;
+};
+
 export type MatchItem = {
   match_id: string;
   to_profile: MatchProfileCard;

@@ -1,11 +1,20 @@
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.errors import ProblemError
-from app.models.db import AppRole, InvestorThesis, MentorExpertise, PriorInvestment, Profile, User
+from app.models.db import (
+    AppRole,
+    InvestorThesis,
+    Match,
+    MentorExpertise,
+    PriorInvestment,
+    Profile,
+    User,
+)
 from app.models.founder import FounderL1Data
 from app.models.profile import BadgesResponse
 
@@ -58,23 +67,7 @@ async def _claim_timestamps(session: AsyncSession, profile: Profile) -> dict[str
     return result
 
 
-async def get_profile_badges(
-    session: AsyncSession, clerk_user_id: str, profile_id: UUID
-) -> BadgesResponse:
-    # Own profile only until match-scoped profile access ships (M8 / M10).
-    profile: Profile | None = await session.scalar(
-        select(Profile)
-        .join(User, Profile.user_id == User.id)
-        .where(Profile.id == profile_id, User.clerk_id == clerk_user_id)
-    )
-    if profile is None:
-        raise ProblemError(
-            status=404,
-            slug="profile-not-found",
-            title="Profile not found",
-            detail="This profile doesn't exist or isn't visible to you.",
-        )
-
+async def badges_for_profile(session: AsyncSession, profile: Profile) -> BadgesResponse:
     timestamps = await _claim_timestamps(session, profile)
     cutoff = datetime.now(UTC) - STALE_AFTER
     stale = sorted(item for item, updated in timestamps.items() if updated < cutoff)
@@ -85,3 +78,31 @@ async def get_profile_badges(
         self_reported_stale=stale,
         last_updated={item: timestamps[item] for item in stale},
     )
+
+
+async def get_profile_badges(
+    session: AsyncSession, clerk_user_id: str, profile_id: UUID
+) -> BadgesResponse:
+    # Visible to the owner and to anyone the profile has been matched with (M10 AC7).
+    viewer_profile = aliased(Profile)
+    viewer_profile_ids = (
+        select(viewer_profile.id)
+        .join(User, viewer_profile.user_id == User.id)
+        .where(User.clerk_id == clerk_user_id)
+    )
+    matched = exists().where(
+        Match.from_profile_id.in_(viewer_profile_ids), Match.to_profile_id == Profile.id
+    )
+    profile: Profile | None = await session.scalar(
+        select(Profile).where(
+            Profile.id == profile_id, or_(Profile.id.in_(viewer_profile_ids), matched)
+        )
+    )
+    if profile is None:
+        raise ProblemError(
+            status=404,
+            slug="profile-not-found",
+            title="Profile not found",
+            detail="This profile doesn't exist or isn't visible to you.",
+        )
+    return await badges_for_profile(session, profile)

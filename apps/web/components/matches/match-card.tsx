@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { MapPinIcon, SparklesIcon } from "@/components/icons";
 import { FitBadge } from "@/components/ui/fit-badge";
 import { cardStyles } from "@/lib/ui";
@@ -34,7 +36,7 @@ export function MatchCard({ match, compact = false }: MatchCardProps) {
   return (
     <article
       aria-label={`${profile.display_name}, ${percent}% fit`}
-      className={`${cardStyles} flex h-full flex-col gap-4 p-6 ${
+      className={`${cardStyles} relative flex h-full flex-col gap-4 p-6 transition-colors hover:bg-slate-50 ${
         match.fit_score >= HIGH_FIT ? "border-l-4 border-l-emerald-bright" : ""
       }`}
     >
@@ -48,7 +50,13 @@ export function MatchCard({ match, compact = false }: MatchCardProps) {
           </span>
           <div className="min-w-0">
             <h3 className="flex flex-wrap items-center gap-2 font-heading text-h4 text-ink">
-              <span className="truncate">{profile.display_name}</span>
+              {/* Stretched link: the whole card opens Match Detail (S-14). */}
+              <Link
+                href={`/matches/${match.match_id}`}
+                className="truncate hover:underline focus:outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-emerald/30"
+              >
+                {profile.display_name}
+              </Link>
               <span className="rounded bg-slate-100 px-2 py-1 font-mono text-meta font-normal uppercase tracking-wider text-ink">
                 {kindLabels[profile.kind]}
               </span>
@@ -78,7 +86,7 @@ export function MatchCard({ match, compact = false }: MatchCardProps) {
           <SparklesIcon />
           Why this match
         </p>
-        <p className="mt-2 text-small text-ink">{match.explanation.short}</p>
+        <p className="mt-2 text-small text-muted">{match.explanation.short}</p>
       </div>
 
       {!compact && profile.bio ? (

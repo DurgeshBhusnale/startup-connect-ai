@@ -1,9 +1,15 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Query
 
 from app.errors import ProblemError
-from app.models.matches import MatchItem, RecomputeResponse
+from app.models.matches import (
+    ExplanationResponse,
+    MatchDetailResponse,
+    MatchItem,
+    RecomputeResponse,
+)
 from app.routers.dependencies import ClerkUserId, SessionDep
 from app.services import matching
 
@@ -21,10 +27,28 @@ async def read_matches(
 
 
 @router.post("/recompute", response_model=RecomputeResponse)
-async def recompute_matches(session: SessionDep, clerk_user_id: ClerkUserId) -> RecomputeResponse:
+async def recompute_matches(
+    session: SessionDep, clerk_user_id: ClerkUserId, background_tasks: BackgroundTasks
+) -> RecomputeResponse:
     try:
-        return await matching.compute_matches(session, clerk_user_id)
+        result = await matching.compute_matches(session, clerk_user_id)
     except ProblemError:
         raise
     except Exception as exc:
         raise matching.unavailable_error() from exc
+    background_tasks.add_task(matching.explain_in_background, clerk_user_id)
+    return result
+
+
+@router.get("/{match_id}", response_model=MatchDetailResponse)
+async def read_match_detail(
+    match_id: UUID, session: SessionDep, clerk_user_id: ClerkUserId
+) -> MatchDetailResponse:
+    return await matching.get_match_detail(session, clerk_user_id, match_id)
+
+
+@router.get("/{match_id}/explanation", response_model=ExplanationResponse)
+async def read_match_explanation(
+    match_id: UUID, session: SessionDep, clerk_user_id: ClerkUserId
+) -> ExplanationResponse:
+    return await matching.get_match_explanation(session, clerk_user_id, match_id)
