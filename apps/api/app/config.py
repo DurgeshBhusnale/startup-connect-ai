@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     explanation_timeout_seconds: float = 12.0
     # Sent as reasoning_effort for reasoning models (gpt-oss); leave blank for models without it.
     llm_reasoning_effort: str = "low"
+    # Text moderation for posts (PRD M4 AC6); a policy-following safety model on the Groq key.
+    moderation_model: str = "openai/gpt-oss-safeguard-20b"
+
+    # Supabase Storage holds post images in a private bucket served through signed URLs.
+    supabase_url: str = ""
+    supabase_service_role_key: str = ""
+    post_media_bucket: str = "post-media"
 
     # Blank QDRANT_URL uses embedded on-disk Qdrant (local dev); set it to use Qdrant Cloud.
     qdrant_url: str = ""

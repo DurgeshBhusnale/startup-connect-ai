@@ -230,6 +230,42 @@ class DataExportRequest(Base):
     downloaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class Post(Base):
+    __tablename__ = "posts"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(Text)
+    body: Mapped[str] = mapped_column(Text, server_default=text("''"))
+    # none_as_null: Python None must be SQL NULL (not JSON null) for the kind/milestone check.
+    milestone: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))
+    moderation_status: Mapped[str] = mapped_column(Text, server_default=text("'approved'"))
+    moderation_note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class PostMedia(Base):
+    __tablename__ = "post_media"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"))
+    post_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("posts.id", ondelete="CASCADE"))
+    position: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
+    storage_path: Mapped[str] = mapped_column(Text)
+    thumbnail_path: Mapped[str] = mapped_column(Text)
+    content_type: Mapped[str] = mapped_column(Text)
+    size_bytes: Mapped[int] = mapped_column(Integer)
+    width: Mapped[int] = mapped_column(Integer)
+    height: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 

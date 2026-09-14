@@ -404,6 +404,47 @@ export type NotificationSummary = {
   pending_intros: number;
 };
 
+export type PostKind = "text" | "image" | "milestone";
+
+export type MilestoneType = "users" | "revenue" | "hiring" | "funding" | "launch" | "other";
+
+export type MilestoneData = {
+  type: MilestoneType;
+  value: string;
+  achieved_on: string;
+  description: string | null;
+};
+
+export type PostMediaItem = {
+  media_id: string;
+  url: string | null;
+  thumbnail_url: string | null;
+  width: number;
+  height: number;
+};
+
+export type PostItem = {
+  post_id: string;
+  kind: PostKind;
+  body: string;
+  milestone_data: MilestoneData | null;
+  media: PostMediaItem[];
+  created_at: string;
+  updated_at: string;
+  edited: boolean;
+};
+
+export type PostsPage = {
+  items: PostItem[];
+  next_cursor: string | null;
+};
+
+export type PostCreatedResponse = {
+  post_id: string;
+};
+
+export type MediaUploadResponse = PostMediaItem;
+
 export type RecomputeResponse = {
   count: number;
 };

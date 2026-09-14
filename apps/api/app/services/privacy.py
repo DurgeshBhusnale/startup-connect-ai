@@ -21,6 +21,8 @@ from app.models.db import (
     Match,
     MentorExpertise,
     Notification,
+    Post,
+    PostMedia,
     PriorInvestment,
     Profile,
     User,
@@ -38,7 +40,7 @@ from app.models.privacy import (
     NotificationPreferences,
     RestoreAccountResponse,
 )
-from app.services import vector_store
+from app.services import storage, vector_store
 from app.services.clerk import delete_clerk_user, fetch_clerk_identity
 from app.services.notifications import notify
 
@@ -293,6 +295,10 @@ async def build_data_export(
                 )
             ),
         ),
+        "posts": await _dump(session, select(Post).where(Post.profile_id.in_(profile_ids))),
+        "post_images": await _dump(
+            session, select(PostMedia).where(PostMedia.profile_id.in_(profile_ids))
+        ),
         "notifications": await _dump(
             session, select(Notification).where(Notification.user_id == user.id)
         ),
@@ -403,6 +409,18 @@ async def purge_account(session: AsyncSession, user: User) -> None:
         (await session.scalars(select(Profile.id).where(Profile.user_id == user.id))).all()
     )
     await vector_store.delete_vectors(profile_ids)
+    media_paths = [
+        path
+        for row in (
+            await session.execute(
+                select(PostMedia.storage_path, PostMedia.thumbnail_path).where(
+                    PostMedia.profile_id.in_(profile_ids)
+                )
+            )
+        ).tuples()
+        for path in row
+    ]
+    await storage.delete_objects(media_paths)
     await delete_clerk_user(user.clerk_id)
     await session.execute(delete(Notification).where(Notification.user_id == user.id))
     await session.execute(delete(DataExportRequest).where(DataExportRequest.user_id == user.id))

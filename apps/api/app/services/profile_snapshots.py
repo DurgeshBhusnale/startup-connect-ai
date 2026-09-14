@@ -6,7 +6,15 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.db import AppRole, InvestorThesis, MentorExpertise, PriorInvestment, Profile, User
+from app.models.db import (
+    AppRole,
+    InvestorThesis,
+    MentorExpertise,
+    Post,
+    PriorInvestment,
+    Profile,
+    User,
+)
 from app.models.founder import FounderL1Data
 from app.models.investor import ThesisData
 from app.models.mentor import MentorExpertiseData
@@ -30,6 +38,7 @@ class ProfileSnapshot:
     thesis: ThesisData | None = None
     expertise: MentorExpertiseData | None = None
     deals: list[PriorDeal] = field(default_factory=list)
+    recent_posts: list[str] = field(default_factory=list)
 
     @property
     def bio(self) -> str | None:
@@ -42,6 +51,18 @@ class ProfileSnapshot:
         if self.kind == AppRole.INVESTOR:
             return self.thesis is not None
         return self.expertise is not None
+
+
+RECENT_POSTS_IN_EMBEDDING = 5
+
+
+def _post_text(post: Post) -> str:
+    milestone = post.milestone or {}
+    if post.kind == "milestone" and milestone:
+        kind = milestone.get("type", "other")
+        description = milestone.get("description") or ""
+        return f"{kind} milestone: {milestone.get('value', '')}. {description}"
+    return post.body
 
 
 async def _build(session: AsyncSession, rows: list[tuple[Profile, User]]) -> list[ProfileSnapshot]:
@@ -76,6 +97,18 @@ async def _build(session: AsyncSession, rows: list[tuple[Profile, User]]) -> lis
             )
         }
 
+    founder_ids = [profile.id for profile, _ in rows if profile.kind == AppRole.FOUNDER]
+    post_texts: dict[UUID, list[str]] = {}
+    if founder_ids:
+        for post in await session.scalars(
+            select(Post)
+            .where(Post.profile_id.in_(founder_ids), Post.deleted_at.is_(None))
+            .order_by(Post.created_at.desc())
+        ):
+            texts = post_texts.setdefault(post.profile_id, [])
+            if len(texts) < RECENT_POSTS_IN_EMBEDDING:
+                texts.append(_post_text(post))
+
     snapshots: list[ProfileSnapshot] = []
     for profile, user in rows:
         snapshot = ProfileSnapshot(
@@ -87,6 +120,7 @@ async def _build(session: AsyncSession, rows: list[tuple[Profile, User]]) -> lis
             embedding_v=profile.embedding_v,
             l1_data=profile.l1_data,
             deals=deals.get(profile.id, []),
+            recent_posts=post_texts.get(profile.id, []),
         )
         if profile.kind == AppRole.FOUNDER:
             snapshot.founder = saved_founder_l1(profile.l1_data)
@@ -168,6 +202,8 @@ def document_text(snapshot: ProfileSnapshot) -> str:
         ]
         if founder.competitors:
             parts.append(f"Competitors: {', '.join(founder.competitors)}.")
+        if snapshot.recent_posts:
+            parts.append(f"Recent updates: {' '.join(snapshot.recent_posts)}")
     elif snapshot.thesis is not None:
         thesis = snapshot.thesis
         parts = [

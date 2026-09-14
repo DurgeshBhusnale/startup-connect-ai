@@ -31,7 +31,7 @@ async function readResponse<T>(response: Response): Promise<T> {
 }
 
 type RequestOptions = {
-  method?: "GET" | "POST" | "PUT" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   token: string;
   body?: unknown;
 };

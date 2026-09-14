@@ -371,6 +371,25 @@ export const DownloadIcon = createIcon(
   </>,
 );
 
+export const FlagIcon = createIcon(
+  "FlagIcon",
+  <path d="M4 22V4a1 1 0 0 1 1-1h11l-2 4 2 4H5M4 15h12" />,
+);
+
+export const ImageIcon = createIcon(
+  "ImageIcon",
+  <>
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+    <circle cx="9" cy="9" r="2" />
+    <path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21" />
+  </>,
+);
+
+export const AlignLeftIcon = createIcon(
+  "AlignLeftIcon",
+  <path d="M15 12H3M17 18H3M21 6H3" />,
+);
+
 export const LogoMarkIcon = createIcon(
   "LogoMarkIcon",
   <>

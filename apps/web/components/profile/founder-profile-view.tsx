@@ -1,11 +1,6 @@
 import Link from "next/link";
 
-import {
-  MapPinIcon,
-  MessageSquareIcon,
-  PencilIcon,
-  SparklesIcon,
-} from "@/components/icons";
+import { MapPinIcon, PencilIcon, PlusIcon, SparklesIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatRupees } from "@/lib/currency";
 import { founderStages } from "@/lib/taxonomy";
@@ -17,6 +12,7 @@ import { ProfileTabs } from "./profile-tabs";
 
 import type { ProfileTab } from "./profile-tabs";
 import type { BadgesResponse, FounderL1Data } from "@/lib/api-types";
+import type { ReactNode } from "react";
 
 const tabs: readonly ProfileTab[] = [
   { key: "overview", label: "Overview" },
@@ -34,6 +30,8 @@ type FounderProfileViewProps = {
   website: string | null;
   badges: BadgesResponse;
   tab: string;
+  /** Rendered on the Posts tab (M4 timeline). */
+  postsPanel: ReactNode;
 };
 
 export function FounderProfileView({
@@ -43,6 +41,7 @@ export function FounderProfileView({
   website,
   badges,
   tab,
+  postsPanel,
 }: FounderProfileViewProps) {
   const activeTab = tabs.some((item) => item.key === tab) ? tab : "overview";
   const stage = founderStages.find((option) => option.value === l1.stage)?.label ?? l1.stage;
@@ -89,6 +88,10 @@ export function FounderProfileView({
           </div>
 
           <div className="mt-4 flex w-full flex-col gap-2">
+            <Link href="/profile?tab=posts&compose=1" scroll={false} className={buttonStyles.primary}>
+              <PlusIcon className="h-4 w-4" />
+              New post
+            </Link>
             <Link href="/profile/edit" className={buttonStyles.secondary}>
               <PencilIcon />
               Edit profile
@@ -183,13 +186,7 @@ export function FounderProfileView({
             </section>
           </>
         ) : activeTab === "posts" ? (
-          <section className={`${cardStyles} p-6`}>
-            <EmptyState
-              icon={<MessageSquareIcon className="h-8 w-8" />}
-              title="No posts yet"
-              body="Updates and milestones you share will appear here once the post composer launches."
-            />
-          </section>
+          postsPanel
         ) : (
           <section className={`${cardStyles} p-6`}>
             <EmptyState

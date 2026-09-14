@@ -9,6 +9,7 @@ import {
   MatchExplanationSkeleton,
 } from "@/components/matches/match-explanation-panel";
 import { MatchOverview } from "@/components/matches/match-overview";
+import { PostTimeline } from "@/components/posts/post-timeline";
 import { ProfileAvatar } from "@/components/profile/profile-avatar";
 import { ProfileTabs } from "@/components/profile/profile-tabs";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -16,17 +17,13 @@ import { FitBadge } from "@/components/ui/fit-badge";
 import { RetryButton } from "@/components/ui/retry-button";
 import { getMatchDetail } from "@/lib/matches-api";
 import { getMe } from "@/lib/me";
+import { getProfilePosts } from "@/lib/posts-api";
 import { cardStyles } from "@/lib/ui";
 
 import type { ProfileTab } from "@/components/profile/profile-tabs";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Match detail" };
-
-const tabs: readonly ProfileTab[] = [
-  { key: "overview", label: "Overview" },
-  { key: "explain", label: "Explain this match" },
-];
 
 function BackLink() {
   return (
@@ -42,11 +39,11 @@ function BackLink() {
 
 type MatchDetailPageProps = {
   params: Promise<{ matchId: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; cursor?: string }>;
 };
 
 export default async function MatchDetailPage({ params, searchParams }: MatchDetailPageProps) {
-  const [{ matchId }, { tab }, me] = await Promise.all([params, searchParams, getMe()]);
+  const [{ matchId }, { tab, cursor }, me] = await Promise.all([params, searchParams, getMe()]);
   if (!me.role) {
     redirect("/onboarding");
   }
@@ -82,7 +79,17 @@ export default async function MatchDetailPage({ params, searchParams }: MatchDet
 
   const { detail } = result;
   const profile = detail.to_profile;
-  const activeTab = tab === "explain" ? "explain" : "overview";
+  // Founders' posts (M4) appear on an Updates tab, visible only through this match.
+  const hasUpdates = detail.details.kind === "founder";
+  const tabs: readonly ProfileTab[] = [
+    { key: "overview", label: "Overview" },
+    ...(hasUpdates ? [{ key: "activity", label: "Updates" }] : []),
+    { key: "explain", label: "Explain this match" },
+  ];
+  const activeTab =
+    tab === "explain" ? "explain" : tab === "activity" && hasUpdates ? "activity" : "overview";
+  const posts =
+    activeTab === "activity" ? await getProfilePosts(profile.profile_id, cursor) : null;
   const firstName = profile.display_name.split(/\s+/)[0] || profile.display_name;
 
   return (
@@ -144,6 +151,22 @@ export default async function MatchDetailPage({ params, searchParams }: MatchDet
           />
           {activeTab === "overview" ? (
             <MatchOverview details={detail.details} badges={detail.badges} />
+          ) : activeTab === "activity" ? (
+            posts ? (
+              <PostTimeline
+                posts={posts.items}
+                nextCursor={posts.next_cursor}
+                editable={false}
+                basePath={`/matches/${detail.match_id}?tab=activity`}
+                isFirstPage={!cursor}
+                emptyTitle="No updates yet"
+                emptyBody={`${firstName} hasn’t shared any updates yet.`}
+              />
+            ) : (
+              <section className={`${cardStyles} p-6`}>
+                <p className="text-small text-ink">Couldn’t load updates right now. Refresh to try again.</p>
+              </section>
+            )
           ) : (
             <Suspense fallback={<MatchExplanationSkeleton />}>
               <MatchExplanationPanel
