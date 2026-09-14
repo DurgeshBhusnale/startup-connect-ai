@@ -89,3 +89,31 @@ class MentorAvailability(StrEnum):
     TWO_PER_MONTH = "2-per-month"
     FOUR_PER_MONTH = "4-per-month"
     UNLIMITED = "unlimited"
+
+
+STAGE_LABELS: dict[str, str] = {
+    "pre-seed": "Pre-seed",
+    "seed": "Seed",
+    "series-a": "Series A",
+    "series-b-plus": "Series B+",
+}
+
+GEOGRAPHY_LABELS: dict[Geography, str] = {
+    Geography.BENGALURU: "Bengaluru",
+    Geography.PUNE: "Pune",
+    Geography.MUMBAI: "Mumbai",
+    Geography.DELHI_NCR: "Delhi NCR",
+    Geography.HYDERABAD: "Hyderabad",
+    Geography.CHENNAI: "Chennai",
+    Geography.INDIA: "India",
+    Geography.SEA: "SEA",
+    Geography.US: "US",
+    Geography.GLOBAL: "Global",
+}
+
+AVAILABILITY_LABELS: dict[MentorAvailability, str] = {
+    MentorAvailability.ONE_PER_MONTH: "1 session / month",
+    MentorAvailability.TWO_PER_MONTH: "2 sessions / month",
+    MentorAvailability.FOUR_PER_MONTH: "4 sessions / month",
+    MentorAvailability.UNLIMITED: "Open availability",
+}

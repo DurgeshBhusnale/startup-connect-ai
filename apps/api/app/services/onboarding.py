@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.models.db import ConsentLog, Profile, User
 from app.models.me import MeResponse, OnboardingRequest
-from app.services.clerk import fetch_primary_email
+from app.services.clerk import fetch_clerk_identity
 
 
 class MissingEmailError(Exception):
@@ -24,16 +24,25 @@ async def complete_onboarding(
     if current.onboarded:
         return current
 
-    email = await fetch_primary_email(clerk_user_id)
-    if email is None:
+    identity = await fetch_clerk_identity(clerk_user_id)
+    if identity.email is None:
         raise MissingEmailError
 
     upsert_user = (
         insert(User)
-        .values(clerk_id=clerk_user_id, email=email, role=payload.role)
+        .values(
+            clerk_id=clerk_user_id,
+            email=identity.email,
+            display_name=identity.display_name,
+            role=payload.role,
+        )
         .on_conflict_do_update(
             index_elements=[User.clerk_id],
-            set_={"email": email, "role": payload.role},
+            set_={
+                "email": identity.email,
+                "display_name": identity.display_name,
+                "role": payload.role,
+            },
             where=User.role.is_(None),
         )
         .returning(User.id)

@@ -12,6 +12,9 @@ async def save_about(
     updated = {**profile.l1_data, "bio": payload.bio}
     if payload.kind == "founder":
         updated["website"] = payload.website
+    if profile.l1_data.get("bio") != payload.bio:
+        # The bio is part of the embedded profile text, so matches need recomputing.
+        profile.embedding_v += 1
     profile.l1_data = updated
     await session.commit()
     return AboutResponse(profile_id=profile.id)

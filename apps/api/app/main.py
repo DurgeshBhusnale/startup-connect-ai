@@ -1,4 +1,7 @@
+import asyncio
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from http import HTTPStatus
 
 from fastapi import FastAPI, Request
@@ -12,11 +15,21 @@ from app.config import get_settings
 from app.errors import ProblemError, UpstreamServiceError, problem_response
 from app.middleware.auth import ClerkAuthMiddleware
 from app.models.common import ProblemDetail
-from app.routers import health, investor, me, mentor, profiles
+from app.routers import health, investor, matches, me, mentor, profiles
+from app.services import embeddings
 
 settings = get_settings()
 logging.basicConfig(level=settings.log_level.upper())
 logger = logging.getLogger("startup_connect_api")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    # Load the embedding model in the background so the first match request doesn't pay for it.
+    warm_up = asyncio.create_task(asyncio.to_thread(embeddings.warm_up))
+    yield
+    warm_up.cancel()
+
 
 app = FastAPI(
     title="Startup Connect AI API",
@@ -24,6 +37,7 @@ app = FastAPI(
     docs_url=None if settings.is_production else "/docs",
     redoc_url=None,
     openapi_url=None if settings.is_production else "/openapi.json",
+    lifespan=lifespan,
 )
 
 # Starlette runs the last-added middleware first: CORS must wrap auth so 401s carry CORS headers.
@@ -104,3 +118,4 @@ app.include_router(me.router)
 app.include_router(profiles.router)
 app.include_router(investor.router)
 app.include_router(mentor.router)
+app.include_router(matches.router)

@@ -1,6 +1,7 @@
 import asyncio
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from functools import lru_cache
 from urllib.parse import quote
 
@@ -31,6 +32,8 @@ class _ClerkUser(BaseModel):
     id: str
     primary_email_address_id: str | None = None
     email_addresses: list[_ClerkEmailAddress] = []
+    first_name: str | None = None
+    last_name: str | None = None
 
 
 @lru_cache
@@ -88,7 +91,13 @@ def _get(url: str, secret_key: str) -> bytes:
         return body
 
 
-async def fetch_primary_email(clerk_user_id: str) -> str | None:
+@dataclass(frozen=True)
+class ClerkIdentity:
+    email: str | None
+    display_name: str | None
+
+
+async def fetch_clerk_identity(clerk_user_id: str) -> ClerkIdentity:
     settings = get_settings()
     url = f"{settings.clerk_api_url}/users/{quote(clerk_user_id, safe='')}"
     try:
@@ -97,7 +106,7 @@ async def fetch_primary_email(clerk_user_id: str) -> str | None:
     except (urllib.error.URLError, TimeoutError, ValidationError) as exc:
         raise UpstreamServiceError("Could not load the user from Clerk") from exc
 
-    return next(
+    email = next(
         (
             address.email_address
             for address in user.email_addresses
@@ -105,3 +114,7 @@ async def fetch_primary_email(clerk_user_id: str) -> str | None:
         ),
         None,
     )
+    name = " ".join(
+        part.strip() for part in (user.first_name, user.last_name) if part and part.strip()
+    )
+    return ClerkIdentity(email=email, display_name=name or None)

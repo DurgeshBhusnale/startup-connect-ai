@@ -3,17 +3,19 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { SparklesIcon } from "@/components/icons";
+import { MatchCard } from "@/components/matches/match-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Greeting } from "@/components/ui/greeting";
 import { getFounderProfileState } from "@/lib/founder-profile-api";
 import { getInvestorProfileState } from "@/lib/investor-profile-api";
+import { getMatches } from "@/lib/matches-api";
 import { getMe } from "@/lib/me";
 import { getMentorProfileState } from "@/lib/mentor-profile-api";
 import { buttonStyles, cardStyles } from "@/lib/ui";
 
 import { dismissPriorInvestmentsBanner } from "./actions";
 
-import type { AppRole } from "@/lib/api-types";
+import type { AppRole, MatchItem } from "@/lib/api-types";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Home" };
@@ -23,6 +25,7 @@ type HomeContent = {
   title: string;
   body: string;
   action?: { href: string; label: string };
+  profileCompleted: boolean;
   showPriorInvestmentsBanner: boolean;
 };
 
@@ -34,7 +37,9 @@ async function loadHomeContent(role: AppRole): Promise<HomeContent> {
       return {
         subtitle,
         title: "No matches yet",
-        body: "Matches will appear here as investors and mentors sign up.",
+        body: "Try posting an update or broadening your criteria.",
+        action: { href: "/profile", label: "Review your profile" },
+        profileCompleted: true,
         showPriorInvestmentsBanner: false,
       };
     }
@@ -43,6 +48,7 @@ async function loadHomeContent(role: AppRole): Promise<HomeContent> {
       title: "Build your founder profile",
       body: "Upload your pitch deck and we’ll fill in the rest — it takes about a minute.",
       action: { href: "/onboarding/founder", label: "Set up your profile" },
+      profileCompleted: false,
       showPriorInvestmentsBanner: false,
     };
   }
@@ -53,9 +59,10 @@ async function loadHomeContent(role: AppRole): Promise<HomeContent> {
     if (state?.completed) {
       return {
         subtitle,
-        title: "You’re set",
-        body: "New founder matches will appear here as they sign up.",
+        title: "No matches yet",
+        body: "Founders who fit your thesis will appear here. Broadening your criteria can help.",
         action: { href: "/onboarding/investor", label: "Edit thesis" },
+        profileCompleted: true,
         showPriorInvestmentsBanner:
           state.prior_investments_status === "skipped" && !state.banner_dismissed,
       };
@@ -67,6 +74,7 @@ async function loadHomeContent(role: AppRole): Promise<HomeContent> {
       action: state?.thesis
         ? { href: "/onboarding/investor/prior-investments", label: "Finish setup" }
         : { href: "/onboarding/investor", label: "Set up your thesis" },
+      profileCompleted: false,
       showPriorInvestmentsBanner: false,
     };
   }
@@ -76,9 +84,10 @@ async function loadHomeContent(role: AppRole): Promise<HomeContent> {
   if (state?.completed) {
     return {
       subtitle,
-      title: "You’re on the list",
-      body: "Matched founders will appear here as they seek mentorship in your expertise areas.",
+      title: "No matches yet",
+      body: "Founders at the stages you mentor will appear here. Broadening your criteria can help.",
       action: { href: "/profile", label: "View your profile" },
+      profileCompleted: true,
       showPriorInvestmentsBanner: false,
     };
   }
@@ -87,8 +96,31 @@ async function loadHomeContent(role: AppRole): Promise<HomeContent> {
     title: "Set up your mentor profile",
     body: "Tell us where you can help so we only match you with founders who need it.",
     action: { href: "/onboarding/mentor", label: "Set up your profile" },
+    profileCompleted: false,
     showPriorInvestmentsBanner: false,
   };
+}
+
+function TopMatches({ matches }: { matches: MatchItem[] }) {
+  return (
+    <section aria-labelledby="top-matches-heading" className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-4">
+        <h2 id="top-matches-heading" className="font-heading text-h3 text-ink">
+          Your top matches
+        </h2>
+        <Link href="/matches" className="text-small font-medium text-emerald-deep hover:underline">
+          View all matches
+        </Link>
+      </div>
+      <ul className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {matches.map((match) => (
+          <li key={match.match_id}>
+            <MatchCard match={match} compact />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 export default async function HomePage() {
@@ -97,6 +129,8 @@ export default async function HomePage() {
     redirect("/onboarding");
   }
   const content = await loadHomeContent(me.role);
+  const matches = content.profileCompleted ? await getMatches(3) : null;
+  const topMatches = matches?.status === "ok" ? matches.matches : [];
 
   return (
     <div className="mx-auto flex max-w-content flex-col gap-6">
@@ -127,14 +161,18 @@ export default async function HomePage() {
         </div>
       ) : null}
 
-      <section className={`${cardStyles} p-6`}>
-        <EmptyState
-          icon={<SparklesIcon className="h-8 w-8" />}
-          title={content.title}
-          body={content.body}
-          action={content.action}
-        />
-      </section>
+      {topMatches.length > 0 ? (
+        <TopMatches matches={topMatches} />
+      ) : (
+        <section className={`${cardStyles} p-6`}>
+          <EmptyState
+            icon={<SparklesIcon className="h-8 w-8" />}
+            title={matches?.status === "unavailable" ? "Finding matches for you…" : content.title}
+            body={matches?.status === "unavailable" ? "Check back in a few minutes." : content.body}
+            action={content.action}
+          />
+        </section>
+      )}
     </div>
   );
 }

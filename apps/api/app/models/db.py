@@ -7,6 +7,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     SmallInteger,
@@ -55,6 +56,7 @@ class User(Base):
     clerk_id: Mapped[str] = mapped_column(Text, unique=True)
     role: Mapped[AppRole | None] = mapped_column(_pg_enum(AppRole, "app_role"))
     email: Mapped[str] = mapped_column(Text)
+    display_name: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -137,5 +139,25 @@ class MentorExpertise(Base):
     stages: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=text("'{}'"))
     availability: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
     session_fee: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Match(Base):
+    __tablename__ = "matches"
+    __table_args__ = (UniqueConstraint("from_profile_id", "to_profile_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    from_profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE")
+    )
+    to_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"))
+    fit_score: Mapped[float] = mapped_column(Float)
+    content_score: Mapped[float] = mapped_column(Float)
+    collab_score: Mapped[float] = mapped_column(Float)
+    explanation: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    features: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

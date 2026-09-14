@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://api.groq.com/openai/v1"
     llm_timeout_seconds: float = 45.0
 
+    # Blank QDRANT_URL uses embedded on-disk Qdrant (local dev); set it to use Qdrant Cloud.
+    qdrant_url: str = ""
+    qdrant_api_key: str = ""
+    qdrant_collection: str = "profiles"
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    match_refresh_hours: int = 12
+
     @property
     def is_production(self) -> bool:
         return self.environment == "production"

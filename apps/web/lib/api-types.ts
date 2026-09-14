@@ -199,6 +199,35 @@ export type BadgesResponse = {
   last_updated: Record<string, string>;
 };
 
+export type MatchProfileCard = {
+  profile_id: string;
+  kind: AppRole;
+  display_name: string;
+  headline: string;
+  location: string | null;
+  bio: string | null;
+  facts: string[];
+};
+
+export type MatchExplanation = {
+  source: "template" | "llm";
+  short: string;
+  features_used: string[];
+};
+
+export type MatchItem = {
+  match_id: string;
+  to_profile: MatchProfileCard;
+  fit_score: number;
+  content_score: number;
+  collab_score: number;
+  explanation: MatchExplanation;
+};
+
+export type RecomputeResponse = {
+  count: number;
+};
+
 export type ProblemDetail = {
   type: string;
   title: string;

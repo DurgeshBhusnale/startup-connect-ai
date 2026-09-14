@@ -32,7 +32,7 @@ def _draft_state(l1_data: dict[str, Any]) -> FounderDraftState | None:
         return None
 
 
-def _saved_l1(l1_data: dict[str, Any]) -> FounderL1Data | None:
+def saved_founder_l1(l1_data: dict[str, Any]) -> FounderL1Data | None:
     values = {key: l1_data[key] for key in FounderL1Data.model_fields if key in l1_data}
     if not values:
         return None
@@ -48,7 +48,7 @@ async def get_founder_state(session: AsyncSession, clerk_user_id: str) -> Founde
         profile_id=profile.id,
         completed=profile.l1_completed_at is not None,
         draft=_draft_state(profile.l1_data),
-        l1_data=_saved_l1(profile.l1_data) if profile.l1_completed_at else None,
+        l1_data=saved_founder_l1(profile.l1_data) if profile.l1_completed_at else None,
         bio=l1_text(profile.l1_data, "bio"),
         website=l1_text(profile.l1_data, "website"),
     )

@@ -28,7 +28,7 @@ async def _get_expertise(session: AsyncSession, profile: Profile) -> MentorExper
     return expertise
 
 
-def _expertise_data(expertise: MentorExpertise | None) -> MentorExpertiseData | None:
+def expertise_data(expertise: MentorExpertise | None) -> MentorExpertiseData | None:
     if expertise is None:
         return None
     try:
@@ -68,7 +68,7 @@ async def get_mentor_state(session: AsyncSession, clerk_user_id: str) -> MentorP
     return MentorProfileState(
         profile_id=profile.id,
         completed=profile.l1_completed_at is not None,
-        expertise=_expertise_data(expertise),
+        expertise=expertise_data(expertise),
         verification=_verification_state(profile.l1_data.get("verification")),
         bio=l1_text(profile.l1_data, "bio"),
     )

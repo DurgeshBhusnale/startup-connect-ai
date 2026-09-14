@@ -1,3 +1,6 @@
+# Embedded Qdrant data for local development
+.qdrant-local/
+
 # Environment
 .env
 .env.local
