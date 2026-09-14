@@ -4,7 +4,14 @@ from typing import Any, cast
 from uuid import UUID
 
 from qdrant_client import AsyncQdrantClient
-from qdrant_client.models import Distance, Filter, HasIdCondition, PointStruct, VectorParams
+from qdrant_client.models import (
+    Distance,
+    Filter,
+    HasIdCondition,
+    PointIdsList,
+    PointStruct,
+    VectorParams,
+)
 
 from app.config import get_settings
 from app.services.embeddings import EMBEDDING_DIM
@@ -63,6 +70,15 @@ async def upsert_vectors(items: list[tuple[UUID, list[float], dict[str, Any]]]) 
             PointStruct(id=str(profile_id), vector=vector, payload=payload)
             for profile_id, vector, payload in items
         ],
+    )
+
+
+async def delete_vectors(profile_ids: list[UUID]) -> None:
+    if not profile_ids:
+        return
+    name = await _collection()
+    await _client().delete(
+        name, points_selector=PointIdsList(points=[str(profile_id) for profile_id in profile_ids])
     )
 
 

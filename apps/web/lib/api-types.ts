@@ -13,6 +13,9 @@ export type OnboardingRequest = {
 };
 
 export type Me = {
+  /** Set while an account deletion is in its 30-day grace period. */
+  hard_delete_at: string | null;
+  matching_enabled: boolean;
   onboarded: boolean;
   role: AppRole | null;
 };
@@ -280,7 +283,55 @@ export type RejectReason =
   | "not_right_person"
   | "other";
 
-export type ConnectionStatus = "none" | "interested" | "pending" | "accepted" | "declined";
+export type ConnectionStatus =
+  | "none"
+  | "interested"
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "cancelled";
+
+export type ConsentScope =
+  | "terms_privacy"
+  | "match_processing"
+  | "email_notifications"
+  | "whatsapp_notifications";
+
+export type ConsentItem = {
+  scope: ConsentScope;
+  granted: boolean;
+  granted_at: string | null;
+  policy_version: string | null;
+  withdrawable: boolean;
+};
+
+export type ConsentCreatedResponse = {
+  consent_id: string;
+};
+
+export type NotificationPreferences = {
+  new_matches: boolean;
+  intro_requests: boolean;
+  mutual_matches: boolean;
+  interest: boolean;
+};
+
+export type DataExportResponse = {
+  export_id: string;
+  estimated_ready_at: string;
+  download_path: string;
+};
+
+export type DataExportItem = {
+  export_id: string;
+  requested_at: string;
+  downloaded_at: string | null;
+};
+
+export type DeleteAccountResponse = {
+  status: "scheduled_deletion";
+  hard_delete_at: string;
+};
 
 export type MatchState = {
   saved_at: string | null;
@@ -328,7 +379,9 @@ export type NotificationKind =
   | "new_matches"
   | "intro_received"
   | "mutual_match"
-  | "match_interest";
+  | "match_interest"
+  | "matching_paused"
+  | "intro_cancelled";
 
 export type NotificationItem = {
   id: string;

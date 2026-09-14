@@ -91,6 +91,33 @@ def _get(url: str, secret_key: str) -> bytes:
         return body
 
 
+def _delete(url: str, secret_key: str) -> None:
+    request = urllib.request.Request(  # noqa: S310 - URL is the configured https Clerk API
+        url,
+        method="DELETE",
+        headers={
+            "Authorization": f"Bearer {secret_key}",
+            "Accept": "application/json",
+            "User-Agent": USER_AGENT,
+        },
+    )
+    with urllib.request.urlopen(request, timeout=10) as response:  # noqa: S310
+        response.read()
+
+
+async def delete_clerk_user(clerk_user_id: str) -> None:
+    settings = get_settings()
+    url = f"{settings.clerk_api_url}/users/{quote(clerk_user_id, safe='')}"
+    try:
+        await asyncio.to_thread(_delete, url, settings.clerk_secret_key)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return  # already gone in Clerk
+        raise UpstreamServiceError("Could not delete the user in Clerk") from exc
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise UpstreamServiceError("Could not delete the user in Clerk") from exc
+
+
 @dataclass(frozen=True)
 class ClerkIdentity:
     email: str | None

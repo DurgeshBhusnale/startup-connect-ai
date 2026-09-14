@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select, update
@@ -16,8 +17,18 @@ from app.models.notifications import (
 TITLE_LIMIT = 200
 BODY_LIMIT = 300
 
+# Topics users can mute in Settings > Notifications. Account notices (paused matching, cancelled
+# intros) are always delivered.
+KIND_TOPICS: dict[NotificationKind, str] = {
+    NotificationKind.NEW_MATCH: "new_matches",
+    NotificationKind.NEW_MATCHES: "new_matches",
+    NotificationKind.INTRO_RECEIVED: "intro_requests",
+    NotificationKind.MUTUAL_MATCH: "mutual_matches",
+    NotificationKind.MATCH_INTEREST: "interest",
+}
 
-def notify(
+
+async def notify(
     session: AsyncSession,
     *,
     user_id: UUID,
@@ -28,6 +39,13 @@ def notify(
     action_href: str | None = None,
 ) -> None:
     """Adds an in-app notification to the caller's transaction (email/WhatsApp come in Week 7+)."""
+    topic = KIND_TOPICS.get(kind)
+    if topic is not None:
+        preferences: dict[str, Any] | None = await session.scalar(
+            select(User.notification_preferences).where(User.id == user_id)
+        )
+        if preferences and preferences.get(topic) is False:
+            return
     session.add(
         Notification(
             user_id=user_id,

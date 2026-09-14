@@ -34,7 +34,12 @@ from app.models.notifications import NotificationKind
 from app.services import embeddings, vector_store
 from app.services.badges import badges_for_profile
 from app.services.clerk import ClerkIdentity, fetch_clerk_identity
-from app.services.connections import ROLE_NOUNS, display_name, states_for
+from app.services.connections import (
+    ROLE_NOUNS,
+    display_name,
+    states_for,
+    viewer_unavailable_error,
+)
 from app.services.match_cards import profile_card
 from app.services.match_explanations import (
     ExplanationError,
@@ -123,12 +128,7 @@ def _score_pair(
 async def _viewer_or_error(session: AsyncSession, clerk_user_id: str) -> ProfileSnapshot:
     viewer = await load_viewer(session, clerk_user_id)
     if viewer is None:
-        raise ProblemError(
-            status=409,
-            slug="profile-incomplete",
-            title="Profile incomplete",
-            detail="Finish setting up your profile to see matches.",
-        )
+        raise await viewer_unavailable_error(session, clerk_user_id)
     return viewer
 
 
@@ -183,7 +183,7 @@ async def _semantic_similarities(
         return None
 
 
-def _notify_new_matches(
+async def _notify_new_matches(
     session: AsyncSession,
     viewer: ProfileSnapshot,
     new_matches: list[tuple[UUID, ProfileSnapshot, float]],
@@ -192,7 +192,7 @@ def _notify_new_matches(
         return
     if len(new_matches) == 1:
         match_id, candidate, fit_score = new_matches[0]
-        notify(
+        await notify(
             session,
             user_id=viewer.user_id,
             kind=NotificationKind.NEW_MATCH,
@@ -204,7 +204,7 @@ def _notify_new_matches(
             action_href=f"/matches/{match_id}",
         )
         return
-    notify(
+    await notify(
         session,
         user_id=viewer.user_id,
         kind=NotificationKind.NEW_MATCHES,
@@ -306,7 +306,7 @@ async def compute_matches(session: AsyncSession, clerk_user_id: str) -> Recomput
         )
         if had_previous_run:
             by_id = {candidate.profile_id: candidate for candidate in candidates}
-            _notify_new_matches(
+            await _notify_new_matches(
                 session,
                 viewer,
                 [

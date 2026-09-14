@@ -74,6 +74,17 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
         </section>
       ) : null}
 
+      {result.status === "paused" ? (
+        <section className={`${cardStyles} p-6`}>
+          <EmptyState
+            icon={<SparklesIcon className="h-8 w-8" />}
+            title="Matching is paused"
+            body="You turned off consent to use your profile data for matching, so your profile is hidden and no matches are computed."
+            action={{ href: "/settings/privacy", label: "Review privacy settings" }}
+          />
+        </section>
+      ) : null}
+
       {result.status === "unavailable" ? (
         <section className={`${cardStyles} flex flex-col items-center gap-4 p-6`}>
           <EmptyState

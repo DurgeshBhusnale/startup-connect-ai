@@ -11,6 +11,8 @@ class NotificationKind(StrEnum):
     INTRO_RECEIVED = "intro_received"
     MUTUAL_MATCH = "mutual_match"
     MATCH_INTEREST = "match_interest"
+    MATCHING_PAUSED = "matching_paused"
+    INTRO_CANCELLED = "intro_cancelled"
 
 
 class NotificationItem(BaseModel):

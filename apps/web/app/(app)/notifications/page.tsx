@@ -3,6 +3,7 @@ import {
   BellIcon,
   CircleCheckIcon,
   InboxIcon,
+  ShieldCheckIcon,
   SparklesIcon,
 } from "@/components/icons";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -40,6 +41,8 @@ const kindStyles: Record<NotificationKind, { icon: IconComponent; tone: string }
   intro_received: { icon: InboxIcon, tone: "bg-slate-100 text-ink" },
   mutual_match: { icon: CircleCheckIcon, tone: "bg-emerald-bright/15 text-emerald-deep" },
   match_interest: { icon: BellIcon, tone: "bg-alert-amber/10 text-alert-amber" },
+  matching_paused: { icon: ShieldCheckIcon, tone: "bg-slate-100 text-ink" },
+  intro_cancelled: { icon: InboxIcon, tone: "bg-slate-100 text-muted" },
 };
 
 // Calendar days in IST, so "Today" matches what users in India see on the clock.

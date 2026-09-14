@@ -6,6 +6,7 @@ import { BellIcon, SearchIcon } from "@/components/icons";
 import { initialsOf } from "@/lib/feedback";
 
 import { BottomTabs, Breadcrumb, MobileNav, SidebarNav } from "./app-nav";
+import { OfflineBanner } from "./offline-banner";
 
 import type { NavBadges } from "./app-nav";
 import type { AppRole } from "@/lib/api-types";
@@ -46,6 +47,7 @@ export function AppShell({ displayName, roleLabel, role, badges, children }: App
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 border-b border-line bg-white">
+          <OfflineBanner />
           <div className="flex items-center justify-between gap-4 px-4 py-2 lg:px-8">
             <div className="flex items-center gap-2 lg:hidden">
               <MobileNav

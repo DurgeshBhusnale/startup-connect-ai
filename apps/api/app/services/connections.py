@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import ProblemError
-from app.models.db import AppRole, FeedbackEvent, IntroRequest, Match
+from app.models.db import AppRole, FeedbackEvent, IntroRequest, Match, User
 from app.models.feedback import (
     ConnectionStatus,
     IntroCreatedResponse,
@@ -69,15 +69,42 @@ def first_name(snapshot: ProfileSnapshot) -> str:
     return display_name(snapshot).split()[0]
 
 
+async def viewer_unavailable_error(session: AsyncSession, clerk_user_id: str) -> ProblemError:
+    """Why a signed-in user has no matchable profile: deletion pending, paused, or incomplete."""
+    flags = (
+        await session.execute(
+            select(User.deleted_at, User.matching_enabled).where(User.clerk_id == clerk_user_id)
+        )
+    ).first()
+    if flags is not None and flags.deleted_at is not None:
+        return ProblemError(
+            status=409,
+            slug="account-scheduled-for-deletion",
+            title="Account scheduled for deletion",
+            detail="Restore your account to use matching again.",
+        )
+    if flags is not None and not flags.matching_enabled:
+        return ProblemError(
+            status=409,
+            slug="matching-paused",
+            title="Matching paused",
+            detail=(
+                "You withdrew consent to use your profile data for matching. "
+                "Turn it back on in Settings > Privacy & Data."
+            ),
+        )
+    return ProblemError(
+        status=409,
+        slug="profile-incomplete",
+        title="Profile incomplete",
+        detail="Finish setting up your profile to see matches.",
+    )
+
+
 async def require_viewer(session: AsyncSession, clerk_user_id: str) -> ProfileSnapshot:
     viewer = await load_viewer(session, clerk_user_id)
     if viewer is None:
-        raise ProblemError(
-            status=409,
-            slug="profile-incomplete",
-            title="Profile incomplete",
-            detail="Finish setting up your profile to act on matches.",
-        )
+        raise await viewer_unavailable_error(session, clerk_user_id)
     return viewer
 
 
@@ -210,7 +237,7 @@ async def ensure_match_row(session: AsyncSession, mirror: Match, owner: ProfileS
     return created
 
 
-def _notify_mutual(
+async def _notify_mutual(
     session: AsyncSession,
     *,
     founder: ProfileSnapshot,
@@ -222,7 +249,7 @@ def _notify_mutual(
     partner_name = display_name(partner)
     founder_name = display_name(founder)
     startup = founder.founder.startup_name if founder.founder is not None else None
-    notify(
+    await notify(
         session,
         user_id=founder.user_id,
         kind=NotificationKind.MUTUAL_MATCH,
@@ -235,7 +262,7 @@ def _notify_mutual(
         action_label="View match",
         action_href=f"/matches/{founder_match.id}",
     )
-    notify(
+    await notify(
         session,
         user_id=partner.user_id,
         kind=NotificationKind.MUTUAL_MATCH,
@@ -269,16 +296,21 @@ async def _partner_accept(
     founder = await _load_other(session, match.to_profile_id)
     founder_match = await ensure_match_row(session, match, founder)
 
-    if intro is None:
-        intro = IntroRequest(
-            founder_profile_id=founder.profile_id,
-            partner_profile_id=partner.profile_id,
-            status=ConnectionStatus.INTERESTED.value,
-        )
-        session.add(intro)
+    # A pair cancelled by an account deletion (and later restored) starts over.
+    if intro is None or intro.status == ConnectionStatus.CANCELLED:
+        if intro is None:
+            intro = IntroRequest(
+                founder_profile_id=founder.profile_id,
+                partner_profile_id=partner.profile_id,
+                status=ConnectionStatus.INTERESTED.value,
+            )
+            session.add(intro)
+        else:
+            intro.status = ConnectionStatus.INTERESTED.value
+            intro.message, intro.requested_at, intro.responded_at = None, None, None
         await session.flush()
         partner_role = ROLE_NOUNS[partner.kind]
-        notify(
+        await notify(
             session,
             user_id=founder.user_id,
             kind=NotificationKind.MATCH_INTEREST,
@@ -295,7 +327,7 @@ async def _partner_accept(
     founder_requested = intro.requested_at is not None
     intro.status = ConnectionStatus.ACCEPTED.value
     intro.responded_at = now
-    _notify_mutual(
+    await _notify_mutual(
         session,
         founder=founder,
         partner=partner,
@@ -351,11 +383,7 @@ async def apply_match_action(
             if (
                 intro is not None
                 and viewer.kind != AppRole.FOUNDER
-                and intro.status
-                in (
-                    ConnectionStatus.PENDING,
-                    ConnectionStatus.INTERESTED,
-                )
+                and intro.status in (ConnectionStatus.PENDING, ConnectionStatus.INTERESTED)
             ):
                 intro.status = ConnectionStatus.DECLINED.value
                 intro.decline_reason = match.reject_reason
@@ -414,17 +442,22 @@ async def request_intro(
     now = datetime.now(UTC)
     match.rejected_at, match.reject_reason = None, None
 
-    if intro is None:
-        intro = IntroRequest(
-            founder_profile_id=viewer.profile_id,
-            partner_profile_id=partner.profile_id,
-            status=ConnectionStatus.PENDING.value,
-            message=body.message,
-            requested_at=now,
-        )
-        session.add(intro)
+    if intro is None or intro.status == ConnectionStatus.CANCELLED:
+        if intro is None:
+            intro = IntroRequest(
+                founder_profile_id=viewer.profile_id,
+                partner_profile_id=partner.profile_id,
+                status=ConnectionStatus.PENDING.value,
+                message=body.message,
+                requested_at=now,
+            )
+            session.add(intro)
+        else:
+            intro.status = ConnectionStatus.PENDING.value
+            intro.message, intro.requested_at = body.message, now
+            intro.responded_at, intro.decline_reason = None, None
         await session.flush()
-        notify(
+        await notify(
             session,
             user_id=partner.user_id,
             kind=NotificationKind.INTRO_RECEIVED,
@@ -442,7 +475,7 @@ async def request_intro(
         intro.message = body.message
         intro.requested_at = now
         intro.responded_at = now
-        _notify_mutual(
+        await _notify_mutual(
             session,
             founder=viewer,
             partner=partner,
@@ -471,7 +504,7 @@ async def respond_intro(
         title="Intro not found",
         detail="This intro request no longer exists.",
     )
-    if intro is None:
+    if intro is None or intro.status == ConnectionStatus.CANCELLED:
         raise not_found
     if intro.partner_profile_id != viewer.profile_id:
         raise ProblemError(
@@ -509,7 +542,7 @@ async def respond_intro(
             intro.status = ConnectionStatus.ACCEPTED.value
             intro.responded_at = now
             partner_match.rejected_at, partner_match.reject_reason = None, None
-            _notify_mutual(
+            await _notify_mutual(
                 session,
                 founder=founder,
                 partner=viewer,

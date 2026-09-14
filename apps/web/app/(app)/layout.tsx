@@ -17,6 +17,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   if (!me.onboarded || !me.role) {
     redirect("/onboarding");
   }
+  // PRD M10 AC6: during the 30-day grace period the only thing left to do is restore or leave.
+  if (me.hard_delete_at) {
+    redirect("/account-deletion");
+  }
 
   const displayName =
     [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||

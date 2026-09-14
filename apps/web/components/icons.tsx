@@ -347,6 +347,30 @@ export const InboxIcon = createIcon(
   </>,
 );
 
+export const MonitorIcon = createIcon(
+  "MonitorIcon",
+  <>
+    <rect width="20" height="14" x="2" y="3" rx="2" />
+    <path d="M8 21h8M12 17v4" />
+  </>,
+);
+
+export const SmartphoneIcon = createIcon(
+  "SmartphoneIcon",
+  <>
+    <rect width="14" height="20" x="5" y="2" rx="2" />
+    <path d="M12 18h.01" />
+  </>,
+);
+
+export const DownloadIcon = createIcon(
+  "DownloadIcon",
+  <>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <path d="m7 10 5 5 5-5M12 15V3" />
+  </>,
+);
+
 export const LogoMarkIcon = createIcon(
   "LogoMarkIcon",
   <>

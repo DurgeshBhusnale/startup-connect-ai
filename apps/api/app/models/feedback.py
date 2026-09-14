@@ -23,6 +23,7 @@ class ConnectionStatus(StrEnum):
     PENDING = "pending"
     ACCEPTED = "accepted"
     DECLINED = "declined"
+    CANCELLED = "cancelled"
 
 
 MatchActionType = Literal["accept", "reject", "save", "unsave", "restore"]

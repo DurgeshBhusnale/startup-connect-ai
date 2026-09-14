@@ -31,7 +31,7 @@ async function readResponse<T>(response: Response): Promise<T> {
 }
 
 type RequestOptions = {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PUT" | "DELETE";
   token: string;
   body?: unknown;
 };
@@ -51,6 +51,18 @@ export async function apiRequest<T>(
     cache: "no-store",
   });
   return readResponse<T>(response);
+}
+
+// Server-side only: returns the raw response so a file (e.g. the DPDP data export) can be streamed on.
+export async function apiDownload(path: string, token: string): Promise<Response> {
+  const response = await fetch(`${apiBaseUrl()}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    await readResponse<never>(response);
+  }
+  return response;
 }
 
 type UploadOptions = {

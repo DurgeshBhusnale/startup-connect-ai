@@ -131,6 +131,20 @@ export default async function HomePage() {
   const content = await loadHomeContent(me.role);
   const matches = content.profileCompleted ? await getMatches(3) : null;
   const topMatches = matches?.status === "ok" ? matches.matches : [];
+  const emptyState =
+    matches?.status === "paused"
+      ? {
+          title: "Matching is paused",
+          body: "You turned off consent to use your profile data for matching.",
+          action: { href: "/settings/privacy", label: "Review privacy settings" },
+        }
+      : matches?.status === "unavailable"
+        ? {
+            title: "Finding matches for you…",
+            body: "Check back in a few minutes.",
+            action: content.action,
+          }
+        : { title: content.title, body: content.body, action: content.action };
 
   return (
     <div className="mx-auto flex max-w-content flex-col gap-6">
@@ -167,9 +181,9 @@ export default async function HomePage() {
         <section className={`${cardStyles} p-6`}>
           <EmptyState
             icon={<SparklesIcon className="h-8 w-8" />}
-            title={matches?.status === "unavailable" ? "Finding matches for you…" : content.title}
-            body={matches?.status === "unavailable" ? "Check back in a few minutes." : content.body}
-            action={content.action}
+            title={emptyState.title}
+            body={emptyState.body}
+            action={emptyState.action}
           />
         </section>
       )}

@@ -15,6 +15,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 export type MatchesResult =
   | { status: "ok"; matches: MatchItem[] }
   | { status: "incomplete" }
+  | { status: "paused" }
   | { status: "unavailable" };
 
 export type MatchDetailResult =
@@ -39,6 +40,9 @@ export async function getMatches(limit = 8): Promise<MatchesResult> {
   } catch (error) {
     unstable_rethrow(error);
     if (error instanceof ApiError && error.status === 409) {
+      if (error.problem?.type.endsWith("/matching-paused")) {
+        return { status: "paused" };
+      }
       return { status: "incomplete" };
     }
     console.error("Loading matches failed", error);
@@ -54,6 +58,9 @@ export async function getSavedMatches(): Promise<MatchesResult> {
   } catch (error) {
     unstable_rethrow(error);
     if (error instanceof ApiError && error.status === 409) {
+      if (error.problem?.type.endsWith("/matching-paused")) {
+        return { status: "paused" };
+      }
       return { status: "incomplete" };
     }
     console.error("Loading saved matches failed", error);

@@ -13,8 +13,21 @@ class MissingEmailError(Exception):
 
 
 async def get_me(session: AsyncSession, clerk_user_id: str) -> MeResponse:
-    role = await session.scalar(select(User.role).where(User.clerk_id == clerk_user_id))
-    return MeResponse(onboarded=role is not None, role=role)
+    row = (
+        await session.execute(
+            select(User.role, User.hard_delete_at, User.matching_enabled).where(
+                User.clerk_id == clerk_user_id, User.purged_at.is_(None)
+            )
+        )
+    ).first()
+    if row is None:
+        return MeResponse(onboarded=False, role=None)
+    return MeResponse(
+        onboarded=row.role is not None,
+        role=row.role,
+        hard_delete_at=row.hard_delete_at,
+        matching_enabled=row.matching_enabled,
+    )
 
 
 async def complete_onboarding(

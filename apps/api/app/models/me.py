@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Self
 
 from pydantic import BaseModel, ConfigDict, model_validator
@@ -38,3 +39,6 @@ class OnboardingRequest(BaseModel):
 class MeResponse(BaseModel):
     onboarded: bool
     role: AppRole | None
+    # Set while an account deletion is in its 30-day grace period.
+    hard_delete_at: datetime | None = None
+    matching_enabled: bool = True

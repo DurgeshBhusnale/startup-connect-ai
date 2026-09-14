@@ -103,6 +103,10 @@ async def _build(session: AsyncSession, rows: list[tuple[Profile, User]]) -> lis
     return snapshots
 
 
+# M10: accounts pending deletion or with matching consent withdrawn are invisible and unmatched.
+_VISIBLE_USER = (User.deleted_at.is_(None), User.matching_enabled.is_(True))
+
+
 async def load_viewer(session: AsyncSession, clerk_user_id: str) -> ProfileSnapshot | None:
     result = await session.execute(
         select(Profile, User)
@@ -111,6 +115,7 @@ async def load_viewer(session: AsyncSession, clerk_user_id: str) -> ProfileSnaps
             User.clerk_id == clerk_user_id,
             Profile.kind == User.role,
             Profile.l1_completed_at.is_not(None),
+            *_VISIBLE_USER,
         )
     )
     row = result.first()
@@ -130,6 +135,7 @@ async def load_candidates(
             Profile.kind.in_(kinds),
             Profile.l1_completed_at.is_not(None),
             User.id != exclude_user_id,
+            *_VISIBLE_USER,
         )
     )
     snapshots = await _build(session, [(row[0], row[1]) for row in result.all()])
@@ -144,7 +150,7 @@ async def load_by_ids(
     result = await session.execute(
         select(Profile, User)
         .join(User, Profile.user_id == User.id)
-        .where(Profile.id.in_(profile_ids))
+        .where(Profile.id.in_(profile_ids), *_VISIBLE_USER)
     )
     snapshots = await _build(session, [(row[0], row[1]) for row in result.all()])
     return {snapshot.profile_id: snapshot for snapshot in snapshots}
