@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { MapPinIcon, SparklesIcon } from "@/components/icons";
+import { TrustBadge } from "@/components/profile/trust-badge";
 import { FitBadge } from "@/components/ui/fit-badge";
 import { cardStyles } from "@/lib/ui";
 
@@ -65,6 +66,7 @@ export function MatchCard({ match, compact = false, footer }: MatchCardProps) {
               </span>
             </h3>
             <p className="mt-1 text-small text-muted">{profile.headline}</p>
+            <TrustBadge trust={profile.trust} className="mt-1" />
           </div>
         </div>
         <FitBadge value={percent} />

@@ -16,6 +16,13 @@ CitationSource = Literal[
 ExplanationSource = Literal["template", "llm"]
 
 
+class TrustSummary(BaseModel):
+    """S7: a categorical badge only; the numeric score is never exposed."""
+
+    badge: Literal["high", "medium", "low"]
+    message: str
+
+
 class MatchProfileCard(BaseModel):
     profile_id: UUID
     kind: Literal["founder", "investor", "mentor"]
@@ -26,6 +33,7 @@ class MatchProfileCard(BaseModel):
     facts: list[str]
     # Founders only (S9): the pinned "Currently asking for" line.
     ask_pin: str | None = None
+    trust: TrustSummary | None = None
 
 
 # Stored shapes (matches.features / matches.explanation JSONB).

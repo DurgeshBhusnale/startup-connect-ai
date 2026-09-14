@@ -14,8 +14,9 @@ from app.models.founder import (
     normalize_linkedin_url,
 )
 from app.models.profile import AboutRequest, AboutResponse, BadgesResponse
+from app.models.trust import TrustResponse
 from app.routers.dependencies import ClerkUserId, SessionDep
-from app.services import ask_pin, badges, founder_profile, profile_about
+from app.services import ask_pin, badges, founder_profile, profile_about, trust
 
 router = APIRouter(prefix="/v1/profiles", tags=["profiles"])
 
@@ -92,3 +93,10 @@ async def read_profile_badges(
     profile_id: UUID, session: SessionDep, clerk_user_id: ClerkUserId
 ) -> BadgesResponse:
     return await badges.get_profile_badges(session, clerk_user_id, profile_id)
+
+
+@router.get("/{profile_id}/trust", response_model=TrustResponse)
+async def read_profile_trust(
+    profile_id: UUID, session: SessionDep, clerk_user_id: ClerkUserId
+) -> TrustResponse:
+    return await trust.get_profile_trust(session, clerk_user_id, profile_id)

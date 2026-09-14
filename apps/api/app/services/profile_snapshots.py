@@ -13,10 +13,12 @@ from app.models.db import (
     Post,
     PriorInvestment,
     Profile,
+    TrustScore,
     User,
 )
 from app.models.founder import FounderL1Data
 from app.models.investor import ThesisData
+from app.models.matches import TrustSummary
 from app.models.mentor import MentorExpertiseData
 from app.models.taxonomy import GEOGRAPHY_LABELS, STAGE_LABELS
 from app.services.founder_profile import saved_founder_l1
@@ -40,6 +42,8 @@ class ProfileSnapshot:
     deals: list[PriorDeal] = field(default_factory=list)
     recent_posts: list[str] = field(default_factory=list)
     ask_pin: str | None = None
+    # S7 badge from the nightly recompute; None for new users (< 10 interactions).
+    trust: TrustSummary | None = None
 
     @property
     def bio(self) -> str | None:
@@ -110,6 +114,16 @@ async def _build(session: AsyncSession, rows: list[tuple[Profile, User]]) -> lis
             if len(texts) < RECENT_POSTS_IN_EMBEDDING:
                 texts.append(_post_text(post))
 
+    trust: dict[UUID, TrustSummary] = {
+        row.profile_id: TrustSummary.model_validate({"badge": row.badge, "message": row.message})
+        for row in await session.scalars(
+            select(TrustScore).where(
+                TrustScore.profile_id.in_([profile.id for profile, _ in rows]),
+                TrustScore.badge.is_not(None),
+            )
+        )
+    }
+
     snapshots: list[ProfileSnapshot] = []
     for profile, user in rows:
         snapshot = ProfileSnapshot(
@@ -123,6 +137,7 @@ async def _build(session: AsyncSession, rows: list[tuple[Profile, User]]) -> lis
             deals=deals.get(profile.id, []),
             recent_posts=post_texts.get(profile.id, []),
             ask_pin=profile.ask_pin,
+            trust=trust.get(profile.id),
         )
         if profile.kind == AppRole.FOUNDER:
             snapshot.founder = saved_founder_l1(profile.l1_data)

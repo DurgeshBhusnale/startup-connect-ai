@@ -83,6 +83,12 @@ async def badges_for_profile(session: AsyncSession, profile: Profile) -> BadgesR
 async def get_profile_badges(
     session: AsyncSession, clerk_user_id: str, profile_id: UUID
 ) -> BadgesResponse:
+    return await badges_for_profile(
+        session, await visible_profile(session, clerk_user_id, profile_id)
+    )
+
+
+async def visible_profile(session: AsyncSession, clerk_user_id: str, profile_id: UUID) -> Profile:
     # Visible to the owner and to anyone the profile has been matched with (M10 AC7).
     viewer_profile = aliased(Profile)
     viewer_profile_ids = (
@@ -105,4 +111,4 @@ async def get_profile_badges(
             title="Profile not found",
             detail="This profile doesn't exist or isn't visible to you.",
         )
-    return await badges_for_profile(session, profile)
+    return profile

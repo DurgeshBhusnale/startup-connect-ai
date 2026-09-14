@@ -14,6 +14,7 @@ import { PostTimeline } from "@/components/posts/post-timeline";
 import { AskPinBanner } from "@/components/profile/ask-pin-banner";
 import { ProfileAvatar } from "@/components/profile/profile-avatar";
 import { ProfileTabs } from "@/components/profile/profile-tabs";
+import { TrustBadge } from "@/components/profile/trust-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FitBadge } from "@/components/ui/fit-badge";
 import { RetryButton } from "@/components/ui/retry-button";
@@ -118,6 +119,7 @@ export default async function MatchDetailPage({ params, searchParams }: MatchDet
           <p className="mt-2 rounded-full bg-slate-100 px-3 py-1 text-meta text-ink">
             {profile.headline}
           </p>
+          <TrustBadge trust={profile.trust} variant="pill" className="mt-2" />
           {profile.location ? (
             <p className="mt-2 flex items-center gap-1 text-small text-muted">
               <MapPinIcon className="h-4 w-4" />

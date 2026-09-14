@@ -1,11 +1,12 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from typing import Any
 
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -337,6 +338,37 @@ class Message(Base):
     client_ref: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TrustScore(Base):
+    __tablename__ = "trust_scores"
+
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE"), primary_key=True
+    )
+    score: Mapped[float | None] = mapped_column(Float)
+    previous_score: Mapped[float | None] = mapped_column(Float)
+    badge: Mapped[str | None] = mapped_column(Text)
+    message: Mapped[str | None] = mapped_column(Text)
+    interactions: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    response_rate: Mapped[float | None] = mapped_column(Float)
+    median_response_hours: Mapped[float | None] = mapped_column(Float)
+    meeting_completion_rate: Mapped[float | None] = mapped_column(Float)
+    follow_through_rate: Mapped[float | None] = mapped_column(Float)
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class TrustScoreHistory(Base):
+    __tablename__ = "trust_score_history"
+
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE"), primary_key=True
+    )
+    computed_on: Mapped[date] = mapped_column(Date, primary_key=True)
+    raw_score: Mapped[float] = mapped_column(Float)
+    interactions: Mapped[int] = mapped_column(Integer)
 
 
 class Notification(Base):

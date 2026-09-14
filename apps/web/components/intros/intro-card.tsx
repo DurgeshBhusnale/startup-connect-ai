@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState, useTransition } from "react";
 
 import { respondToIntro } from "@/app/(app)/intros/actions";
 import { ArrowRightIcon, CircleCheckIcon, MapPinIcon } from "@/components/icons";
+import { TrustBadge } from "@/components/profile/trust-badge";
 import { FitBadge } from "@/components/ui/fit-badge";
 import { firstNameOf, initialsOf, rejectReasons } from "@/lib/feedback";
 import { buttonStyles, cardStyles } from "@/lib/ui";
@@ -82,6 +83,7 @@ export function IntroCard({ item }: { item: IntroQueueItem }) {
           <div className="min-w-0">
             <h2 className="font-heading text-h4 text-ink">{profile.display_name}</h2>
             <p className="mt-1 text-small text-muted">{profile.headline}</p>
+            <TrustBadge trust={profile.trust} className="mt-1" />
             {profile.location ? (
               <p className="mt-1 flex items-center gap-1 text-meta text-muted">
                 <MapPinIcon className="h-4 w-4" />

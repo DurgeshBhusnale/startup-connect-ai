@@ -212,6 +212,17 @@ export type MatchProfileCard = {
   bio: string | null;
   facts: string[];
   ask_pin: string | null;
+  trust: TrustSummary | null;
+};
+
+export type TrustSummary = {
+  badge: "high" | "medium" | "low";
+  message: string;
+};
+
+export type TrustResponse = {
+  badge: TrustSummary["badge"] | null;
+  message: string | null;
 };
 
 export type MatchExplanation = {

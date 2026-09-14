@@ -5,6 +5,10 @@ from app.services.profile_snapshots import ProfileSnapshot
 
 
 def profile_card(snapshot: ProfileSnapshot) -> MatchProfileCard:
+    return _base_card(snapshot).model_copy(update={"trust": snapshot.trust})
+
+
+def _base_card(snapshot: ProfileSnapshot) -> MatchProfileCard:
     if snapshot.founder is not None:
         founder = snapshot.founder
         stage = STAGE_LABELS[founder.stage.value]
