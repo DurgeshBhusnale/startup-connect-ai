@@ -99,3 +99,21 @@ async def similarities(query_profile_id: UUID, candidate_ids: list[UUID]) -> dic
         limit=len(candidate_ids),
     )
     return {UUID(str(point.id)): float(point.score) for point in response.points}
+
+
+async def similarities_to_vector(
+    vector: list[float], candidate_ids: list[UUID]
+) -> dict[UUID, float]:
+    """Cosine similarity of an arbitrary vector (e.g. an S2 search query) to each candidate."""
+    if not candidate_ids:
+        return {}
+    name = await _collection()
+    response = await _client().query_points(
+        name,
+        query=vector,
+        query_filter=Filter(
+            must=[HasIdCondition(has_id=[str(candidate_id) for candidate_id in candidate_ids])]
+        ),
+        limit=len(candidate_ids),
+    )
+    return {UUID(str(point.id)): float(point.score) for point in response.points}

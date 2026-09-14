@@ -29,6 +29,7 @@ from app.models.db import (
     PostMedia,
     PriorInvestment,
     Profile,
+    SearchQuery,
     User,
 )
 from app.models.feedback import ConnectionStatus
@@ -274,6 +275,9 @@ async def build_data_export(
             select(ConsentLog).where(ConsentLog.user_id == user.id).order_by(ConsentLog.created_at),
         ),
         "profiles": await _dump(session, select(Profile).where(Profile.user_id == user.id)),
+        "search_history": await _dump(
+            session, select(SearchQuery).where(SearchQuery.user_id == user.id)
+        ),
         "investor_thesis": await _dump(
             session, select(InvestorThesis).where(InvestorThesis.profile_id.in_(profile_ids))
         ),

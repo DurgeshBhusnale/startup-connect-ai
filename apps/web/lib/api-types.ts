@@ -407,6 +407,45 @@ export type EndorsementCreatedResponse = {
   endorsement_id: string;
 };
 
+export type SearchMatchedAttribute = {
+  label: string;
+  value: string;
+  source: string;
+};
+
+export type SearchResult = {
+  profile_id: string;
+  kind: AppRole;
+  match_id: string | null;
+  fit_score: number | null;
+  display_name: string | null;
+  headline: string;
+  location: string | null;
+  snippet: string;
+  fit_summary: string;
+  matched_attributes: SearchMatchedAttribute[];
+  connect: "view" | "request" | "unavailable";
+};
+
+export type SearchResponse = {
+  query: string;
+  interpreted: string[];
+  items: SearchResult[];
+  total: number;
+  next_offset: number | null;
+  understood_by: "llm" | "keywords";
+  semantic: boolean;
+};
+
+export type RecentSearch = {
+  query: string;
+  searched_at: string;
+};
+
+export type RequestMatchResponse = {
+  match_id: string;
+};
+
 export type GivenEndorsement = {
   endorsement_id: string;
   founder_profile_id: string;

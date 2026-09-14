@@ -31,8 +31,8 @@ Code state: commit `b06654c` on `main` (GitHub). This report compares the build 
 | M8 | Match explanations ("why this match") | ✅ | S-13, S-14 |
 | M9 | Match feedback: accept, reject, save, intros | ✅ | S-13, S-16, S-17, S-22 |
 | M10 | Private matches and DPDP consent | 🟡 | S-02, S-23, S-24, S-25, S-28 |
-| S1 | Video posts | ⬜ (needs a video hosting decision) | S-15 video tab |
-| S2 | RAG semantic search | ⬜ (design received) | S-21 |
+| S1 | Video posts | ⬜ Deferred on purpose (needs a video host; impact noted below) | S-15 video tab |
+| S2 | RAG semantic search | ✅ | S-21 |
 | S3 | Meeting scheduler (Cal.com) | ✅ | S-19 |
 | S4 | Meeting outcome tracking | ✅ | S-20 |
 | S5 | AI-drafted intro message | ✅ (shipped inside M9) | S-16 |
@@ -41,7 +41,7 @@ Code state: commit `b06654c` on `main` (GitHub). This report compares the build 
 | S8 | Third-party endorsements | ✅ (mutual matches instead of "verified") | S-14, S-10, S-11, S-12 |
 | S9 | Milestone cards and ask pins | ✅ | S-15, S-10, S-14 |
 
-Screens not built: **S-05** (connect L2 sources, part of M5), **S-06** (first post in onboarding), **S-21** (search, S2), **S-26** (billing, PRD says it may defer to v1.2).
+Screens not built: **S-05** (connect L2 sources, part of M5), **S-06** (first post in onboarding), **S-26** (billing, PRD says it may defer to v1.2), and the S-15 video tab (S1).
 
 Cross-cutting items not built yet: email and WhatsApp notifications (in-app only, as agreed for v1), an analytics provider (events are only written to API logs), CI pipeline, automated test suite in the repo, error monitoring, production deployment.
 
@@ -241,8 +241,31 @@ Cross-cutting items not built yet: email and WhatsApp notifications (in-app only
 - **v1.1:** email channel (Resend or SendGrid) for the export link, restore magic link and notification emails that respect consent; "Request to match".
 - **v1.2:** public profile toggle; forced re-consent when the policy version changes (the version check exists).
 
-### S1: Video posts (⬜)
-**Needs a decision:** video hosting. The PRD suggests **Cloudflare Stream** (upload API, thumbnails, adaptive bitrate, about $1 per 1,000 minutes stored). Alternatives: Mux, or Supabase Storage without transcoding (not recommended).
+### S1: Video posts (⬜ deferred on purpose)
+**What S1 is.** Founders post short videos on their profile: a 30-second founder intro or a product demo.
+- **Upload:** one video per post, up to 90 seconds and 100 MB, MP4/MOV/WebM.
+- **Thumbnail:** generated from the first frame, with an option to choose another frame.
+- **Playback:** inline, muted by default with tap to unmute, served from a CDN with adaptive bitrate for mobile.
+- **Limit:** free founders can keep 3 videos; more needs Founder Pro.
+- **Screen and API:** the Video tab in the Compose Post modal (S-15), `POST /v1/media/upload-video`, and posts of `kind: 'video'`.
+- **Why it matters:** investors and mentors get a more human sense of the founder and product than text and images give.
+
+**Why it isn't built now.**
+- **Hosting decision:** it needs a video host. The PRD suggests **Cloudflare Stream** (upload API, thumbnails, adaptive bitrate, about $1 per 1,000 minutes stored); the alternatives are Mux, or Supabase Storage without transcoding (not recommended).
+- **New account and costs:** that means another paid account, keys and running costs.
+- **Moderation:** a moderation plan for video.
+- **Priority:** the Business Architecture places S1 after text and image posts are proven.
+
+**What happens if S1 isn't completed now.**
+- **For users:** nothing breaks. Founders keep posting text, image and milestone updates (M4/S9), and the composer has no Video tab (exactly what the PRD requires for v1), so nothing looks unfinished.
+- **Product impact:** profiles are less "human". Founders who pitch better on camera can't show that, which may slightly lower intro acceptance for early-stage founders with thin traction. This is a nice-to-have, not a blocker for matching, intros, meetings or messaging.
+- **Business impact:** the "3 free videos, unlimited on Founder Pro" upsell can't be used yet. That's acceptable because billing (S-26) isn't built either.
+- **Technical impact:** none.
+  - Posts already use a `kind` column (text / image / milestone), so adding `video` later is a small migration plus a new upload endpoint.
+  - The composer tabs and timeline cards are built to accept a new kind.
+  - No data needs migrating, and existing posts, moderation, purge jobs and privacy export keep working.
+- **Cost impact:** you avoid video hosting and moderation costs until there are real users.
+- **Risk if left too long:** founders may paste YouTube or Loom links into text posts instead. That's harmless, but those videos can't be moderated or served inline. Plan S1 for v1.1 once founders ask for it.
 
 **Planned scope**
 - **Composer:** a Video tab with one video per post (≤ 90 s, ≤ 100 MB, MP4/MOV/WebM), direct upload with progress, and thumbnail choice.
@@ -251,8 +274,30 @@ Cross-cutting items not built yet: email and WhatsApp notifications (in-app only
 - **Limits:** 3 videos per founder on the free plan (upgrade prompt once billing exists).
 - **Moderation:** manual review queue for video.
 
-### S2: RAG semantic search (⬜, design received)
-**Planned scope (from the S-21 screenshot and PRD)**
+### S2: RAG semantic search (✅)
+**Delivered**
+- **Opening search:** Cmd/Ctrl-K from any page, or the top-bar search, opens the S-21 modal. `/search` is the full-page version used on mobile.
+- **Before searching:** role-specific "Try one of these" examples, recent searches (last 5 shown, clearable) and keyboard navigation (↑↓ / ↵ / esc).
+- **Query parsing:** `POST /v1/search` runs Groq and a deterministic keyword parser together. Every value is checked against the shared taxonomy, which is also the prompt-injection defence. If the LLM fails, the keywords alone are used, with a note.
+- **Ranking:** share of requested attributes matched (sector, stage, geography, expertise, cheque/ask) blended with the semantic similarity of the query to profile embeddings in Qdrant. If Qdrant is down, ranking uses attributes only. Top 50, loaded 8 at a time.
+- **Results:** each shows role, headline, a grounded fit summary and matched-attribute chips citing their source ("investor's thesis", "founder's profile", "mentor's expertise"), plus "Showing results for" chips.
+- **Privacy:**
+  - Matched profiles show a name, fit % and "View profile".
+  - Unmatched profiles are anonymous ("Fintech founder · Seed") with **Request match**, which creates the match both ways and notifies the other side.
+  - Pairs with no sector or stage overlap show "No overlap yet".
+- **Empty state:** the PRD's "No profiles match — try broadening your query…".
+- **Also:** search history is included in the data export.
+
+**Deviations**
+- The response is an object (`items`, `total`, `next_offset`, `interpreted`) rather than a bare list.
+- Fit summaries are template sentences, not LLM prose, so they can't hallucinate.
+- The `search_result_clicked` analytics event isn't wired, and `search_opened` isn't logged; `search_query_submitted` is written to the API logs.
+- Left out of the screenshot: the "Hybrid Vector Search" and "Semantic memory active" labels.
+
+**Next scope**
+- **v1.1:** search analytics in PostHog, saved searches, filters in the results (stage, cheque), and the ask pin and posts added to the search text.
+
+**Original plan (for reference)**
 - **Opening the modal:** Cmd/Ctrl-K or the top-bar search. Input placeholder: "Ask anything…".
 - **Suggestions:** "Try one of these" chips, recent queries (stored per user) and keyboard navigation (↑↓, Enter, Esc).
 - **API:** `POST /v1/search {query, limit}`.

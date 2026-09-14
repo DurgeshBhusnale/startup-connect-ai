@@ -342,6 +342,91 @@ async def compute_matches(session: AsyncSession, clerk_user_id: str) -> Recomput
     return RecomputeResponse(count=len(rows))
 
 
+def can_match(viewer: ProfileSnapshot, candidate: ProfileSnapshot) -> bool:
+    """Whether the pair passes the basic filters (sector overlap, or stage overlap for mentors)."""
+    return _score_pair(viewer, candidate, None) is not None
+
+
+async def ensure_pair_match(
+    session: AsyncSession, viewer: ProfileSnapshot, candidate: ProfileSnapshot
+) -> UUID | None:
+    """S2 "Request match": stores match rows for both sides of one pair, whatever the fit.
+
+    Returns the viewer's match id, or None when the pair fails the basic filters. The other side is
+    notified, since the viewer can now see their profile (and they can see the viewer's).
+    """
+    existing: UUID | None = await session.scalar(
+        select(Match.id).where(
+            Match.from_profile_id == viewer.profile_id, Match.to_profile_id == candidate.profile_id
+        )
+    )
+    if existing is not None:
+        return existing
+    similarities = await _semantic_similarities(viewer, [candidate])
+    similarity = similarities.get(candidate.profile_id) if similarities is not None else None
+    content = _score_pair(viewer, candidate, similarity)
+    if content is None:
+        return None
+    features = content.breakdown()
+    rows: list[dict[str, Any]] = []
+    for source, target in ((viewer, candidate), (candidate, viewer)):
+        state = explanation_state(None, features, source.kind)
+        if state is None:
+            return None
+        rows.append(
+            {
+                "from_profile_id": source.profile_id,
+                "to_profile_id": target.profile_id,
+                "fit_score": content.score,
+                "content_score": content.score,
+                "collab_score": 0.0,
+                "explanation": state.stored.model_dump(mode="json"),
+                "features": features,
+            }
+        )
+    await session.execute(
+        insert(Match)
+        .values(rows)
+        .on_conflict_do_nothing(index_elements=[Match.from_profile_id, Match.to_profile_id])
+    )
+    ids = dict(
+        (
+            await session.execute(
+                select(Match.from_profile_id, Match.id).where(
+                    or_(
+                        and_(
+                            Match.from_profile_id == viewer.profile_id,
+                            Match.to_profile_id == candidate.profile_id,
+                        ),
+                        and_(
+                            Match.from_profile_id == candidate.profile_id,
+                            Match.to_profile_id == viewer.profile_id,
+                        ),
+                    )
+                )
+            )
+        )
+        .tuples()
+        .all()
+    )
+    candidate_match = ids.get(candidate.profile_id)
+    if candidate_match is not None:
+        await notify(
+            session,
+            user_id=candidate.user_id,
+            kind=NotificationKind.NEW_MATCH,
+            title=(
+                f"New match: {display_name(viewer)} ({ROLE_NOUNS[viewer.kind]}) · "
+                f"{round(content.score * 100)}% fit"
+            ),
+            body="They found you through search.",
+            action_label="View match",
+            action_href=f"/matches/{candidate_match}",
+        )
+    await session.commit()
+    return ids.get(viewer.profile_id)
+
+
 async def _refresh_explanations(
     session: AsyncSession, viewer: ProfileSnapshot, matches: Sequence[Match]
 ) -> dict[UUID, StoredExplanation]:

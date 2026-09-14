@@ -2,8 +2,9 @@ import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 
 import { Logo } from "@/components/brand/logo";
-import { BellIcon, SearchIcon } from "@/components/icons";
+import { BellIcon } from "@/components/icons";
 import { RealtimeProvider } from "@/components/messages/realtime-provider";
+import { SearchLauncher } from "@/components/search/search-launcher";
 import { initialsOf } from "@/lib/feedback";
 
 import { BottomTabs, Breadcrumb, MobileNav, SidebarNav } from "./app-nav";
@@ -69,13 +70,7 @@ export function AppShell({ displayName, roleLabel, role, badges, children }: App
             </div>
             <Breadcrumb role={role} />
             <div className="flex items-center gap-2">
-              <Link
-                href="/search"
-                className="hidden items-center gap-2 rounded-md border border-line bg-slate-50 px-3 py-2 text-small text-muted hover:border-muted md:flex"
-              >
-                <SearchIcon />
-                Find investors, founders…
-              </Link>
+              <SearchLauncher role={role} />
               <Link
                 href="/notifications"
                 aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
