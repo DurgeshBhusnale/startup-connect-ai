@@ -33,6 +33,11 @@ const topicCopy: Record<
     body: "When someone accepts your match before you request an intro.",
     roles: ["founder"],
   },
+  meetings: {
+    title: "Meetings",
+    body: "When a meeting is booked, before it starts, or when a match wants to schedule.",
+    roles: ["founder", "investor", "mentor"],
+  },
 };
 
 type NotificationPreferencesFormProps = {

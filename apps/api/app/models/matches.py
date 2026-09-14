@@ -90,6 +90,18 @@ class SavedMatchItem(MatchItem):
     saved_at: datetime
 
 
+class MeetingItem(BaseModel):
+    meeting_id: UUID
+    scheduled_at: datetime
+    ends_at: datetime
+    duration_minutes: int
+    title: str | None
+    video_url: str | None
+    status: Literal["scheduled", "cancelled"]
+    host_is_me: bool
+    booked_by_me: bool
+
+
 class FeatureScore(BaseModel):
     feature: str
     label: str
@@ -131,6 +143,7 @@ class MatchDetailResponse(BaseModel):
     scoring: list[FeatureScore]
     badges: BadgesResponse
     state: MatchState
+    upcoming_meeting: MeetingItem | None = None
 
 
 class RecomputeResponse(BaseModel):

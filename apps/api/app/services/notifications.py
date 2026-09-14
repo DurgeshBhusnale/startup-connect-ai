@@ -25,6 +25,10 @@ KIND_TOPICS: dict[NotificationKind, str] = {
     NotificationKind.INTRO_RECEIVED: "intro_requests",
     NotificationKind.MUTUAL_MATCH: "mutual_matches",
     NotificationKind.MATCH_INTEREST: "interest",
+    NotificationKind.MEETING_BOOKED: "meetings",
+    NotificationKind.MEETING_REMINDER: "meetings",
+    NotificationKind.MEETING_INVITE: "meetings",
+    NotificationKind.SCHEDULING_LINK_REQUEST: "meetings",
 }
 
 

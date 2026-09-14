@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-import { ArrowLeftIcon, LockIcon, MapPinIcon } from "@/components/icons";
+import { ArrowLeftIcon, CalendarIcon, LockIcon, MapPinIcon } from "@/components/icons";
 import { MatchActions } from "@/components/matches/match-actions";
 import {
   MatchExplanationPanel,
@@ -17,6 +17,7 @@ import { FitBadge } from "@/components/ui/fit-badge";
 import { RetryButton } from "@/components/ui/retry-button";
 import { getMatchDetail } from "@/lib/matches-api";
 import { getMe } from "@/lib/me";
+import { meetingShortDay, meetingTimeRange } from "@/lib/meetings";
 import { getProfilePosts } from "@/lib/posts-api";
 import { cardStyles } from "@/lib/ui";
 
@@ -121,6 +122,23 @@ export default async function MatchDetailPage({ params, searchParams }: MatchDet
               layout="stacked"
             />
           </div>
+          {detail.upcoming_meeting ? (
+            <Link
+              href={`/matches/${detail.match_id}/schedule`}
+              className="mt-4 flex w-full items-center gap-3 rounded-md bg-slate-50 p-3 text-left hover:bg-slate-100"
+            >
+              <CalendarIcon className="h-4 w-4 shrink-0 text-emerald-deep" />
+              <span className="min-w-0">
+                <span className="block font-mono text-meta uppercase tracking-wider text-muted">
+                  Upcoming meeting
+                </span>
+                <span className="block text-small text-ink">
+                  {meetingShortDay(detail.upcoming_meeting.scheduled_at)} ·{" "}
+                  {meetingTimeRange(detail.upcoming_meeting)}
+                </span>
+              </span>
+            </Link>
+          ) : null}
           {profile.bio ? <p className="mt-4 text-small text-ink">{profile.bio}</p> : null}
           {profile.facts.length > 0 ? (
             <ul className="mt-6 w-full divide-y divide-line rounded-md border border-line text-left">

@@ -37,6 +37,7 @@ class NotificationPreferences(BaseModel):
     intro_requests: bool = True
     mutual_matches: bool = True
     interest: bool = True
+    meetings: bool = True
 
 
 class DataExportResponse(BaseModel):

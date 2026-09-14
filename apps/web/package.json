@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@calcom/embed-react": "^1.5.3",
     "@clerk/nextjs": "6.39.6",
     "next": "15.5.25",
     "react": "19.2.8",

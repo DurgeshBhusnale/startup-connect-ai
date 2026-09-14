@@ -38,4 +38,5 @@ export const notificationTopicKeys = [
   "intro_requests",
   "mutual_matches",
   "interest",
+  "meetings",
 ] as const satisfies readonly (keyof NotificationPreferences)[];

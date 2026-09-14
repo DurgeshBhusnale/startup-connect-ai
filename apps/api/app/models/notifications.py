@@ -13,6 +13,10 @@ class NotificationKind(StrEnum):
     MATCH_INTEREST = "match_interest"
     MATCHING_PAUSED = "matching_paused"
     INTRO_CANCELLED = "intro_cancelled"
+    MEETING_BOOKED = "meeting_booked"
+    MEETING_REMINDER = "meeting_reminder"
+    MEETING_INVITE = "meeting_invite"
+    SCHEDULING_LINK_REQUEST = "scheduling_link_request"
 
 
 class NotificationItem(BaseModel):

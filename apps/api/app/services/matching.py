@@ -16,6 +16,7 @@ from app.config import get_settings
 from app.db.session import get_session_factory
 from app.errors import ProblemError, UpstreamServiceError
 from app.models.db import AppRole, IntroRequest, Match, PriorInvestment, Profile, User
+from app.models.feedback import ConnectionStatus
 from app.models.investor import PriorInvestmentItem
 from app.models.matches import (
     ExplanationResponse,
@@ -54,6 +55,7 @@ from app.services.match_scoring import (
     score_founder_investor,
     score_founder_mentor,
 )
+from app.services.meetings import upcoming_meeting
 from app.services.notifications import notify
 from app.services.profile_lookup import l1_text
 from app.services.profile_snapshots import (
@@ -640,6 +642,11 @@ async def get_match_detail(
         scoring=scoring,
         badges=await badges_for_profile(session, profile),
         state=states[match.id],
+        upcoming_meeting=(
+            await upcoming_meeting(session, viewer, match)
+            if states[match.id].connection == ConnectionStatus.ACCEPTED
+            else None
+        ),
     )
 
 

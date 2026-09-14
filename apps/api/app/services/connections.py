@@ -122,14 +122,14 @@ async def owned_match(session: AsyncSession, viewer: ProfileSnapshot, match_id: 
     return match
 
 
-def _pair(viewer: ProfileSnapshot, other_profile_id: UUID) -> tuple[UUID, UUID]:
+def pair_ids(viewer: ProfileSnapshot, other_profile_id: UUID) -> tuple[UUID, UUID]:
     """(founder_profile_id, partner_profile_id) for the viewer and the other side of a match."""
     if viewer.kind == AppRole.FOUNDER:
         return viewer.profile_id, other_profile_id
     return other_profile_id, viewer.profile_id
 
 
-async def _intro_for(
+async def intro_for(
     session: AsyncSession, founder_profile_id: UUID, partner_profile_id: UUID
 ) -> IntroRequest | None:
     intro: IntroRequest | None = await session.scalar(
@@ -277,7 +277,7 @@ async def _notify_mutual(
     )
 
 
-async def _load_other(session: AsyncSession, profile_id: UUID) -> ProfileSnapshot:
+async def load_other(session: AsyncSession, profile_id: UUID) -> ProfileSnapshot:
     snapshot = (await load_by_ids(session, [profile_id])).get(profile_id)
     if snapshot is None or not snapshot.matchable:
         raise match_not_found()
@@ -293,7 +293,7 @@ async def _partner_accept(
 ) -> tuple[IntroRequest, bool]:
     match.rejected_at = None
     match.reject_reason = None
-    founder = await _load_other(session, match.to_profile_id)
+    founder = await load_other(session, match.to_profile_id)
     founder_match = await ensure_match_row(session, match, founder)
 
     # A pair cancelled by an account deletion (and later restored) starts over.
@@ -351,7 +351,7 @@ async def apply_match_action(
 ) -> MatchActionResponse:
     viewer = await require_viewer(session, clerk_user_id)
     match = await owned_match(session, viewer, match_id)
-    intro = await _intro_for(session, *_pair(viewer, match.to_profile_id))
+    intro = await intro_for(session, *pair_ids(viewer, match.to_profile_id))
     now = datetime.now(UTC)
     changed = False
 
@@ -426,7 +426,7 @@ async def request_intro(
     if founder is None:
         raise founders_only()
     match = await owned_match(session, viewer, match_id)
-    intro = await _intro_for(session, viewer.profile_id, match.to_profile_id)
+    intro = await intro_for(session, viewer.profile_id, match.to_profile_id)
     if intro is not None and intro.status in (ConnectionStatus.PENDING, ConnectionStatus.ACCEPTED):
         return IntroCreatedResponse(intro_id=intro.id, status=ConnectionStatus(intro.status))
     if intro is not None and intro.status == ConnectionStatus.DECLINED:
@@ -437,7 +437,7 @@ async def request_intro(
             detail="This intro request was declined, so it can't be sent again.",
         )
 
-    partner = await _load_other(session, match.to_profile_id)
+    partner = await load_other(session, match.to_profile_id)
     partner_match = await ensure_match_row(session, match, partner)
     now = datetime.now(UTC)
     match.rejected_at, match.reject_reason = None, None

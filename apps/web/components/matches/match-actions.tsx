@@ -1,10 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 
 import { takeMatchAction } from "@/app/(app)/matches/actions";
-import { ArrowRightIcon, BookmarkIcon, CheckIcon, XIcon } from "@/components/icons";
+import {
+  ArrowRightIcon,
+  BookmarkIcon,
+  CalendarIcon,
+  CheckIcon,
+  XIcon,
+} from "@/components/icons";
 import { firstNameOf, rejectReasons } from "@/lib/feedback";
 import { buttonStyles } from "@/lib/ui";
 
@@ -145,10 +152,16 @@ export function MatchActions({
   let primary: ReactNode;
   if (connection === "accepted") {
     primary = (
-      <StatusPill tone="emerald">
-        <CheckIcon className="h-4 w-4" />
-        Mutual match
-      </StatusPill>
+      <>
+        <StatusPill tone="emerald">
+          <CheckIcon className="h-4 w-4" />
+          Mutual match
+        </StatusPill>
+        <Link href={`/matches/${matchId}/schedule`} className={buttonStyles.primary}>
+          <CalendarIcon className="h-4 w-4" />
+          Schedule a meeting
+        </Link>
+      </>
     );
   } else if (isFounder && connection === "pending") {
     primary = <StatusPill>Intro requested</StatusPill>;

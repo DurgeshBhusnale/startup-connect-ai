@@ -1,7 +1,9 @@
 import {
   ArrowRightIcon,
   BellIcon,
+  CalendarIcon,
   CircleCheckIcon,
+  ClockIcon,
   InboxIcon,
   ShieldCheckIcon,
   SparklesIcon,
@@ -43,6 +45,10 @@ const kindStyles: Record<NotificationKind, { icon: IconComponent; tone: string }
   match_interest: { icon: BellIcon, tone: "bg-alert-amber/10 text-alert-amber" },
   matching_paused: { icon: ShieldCheckIcon, tone: "bg-slate-100 text-ink" },
   intro_cancelled: { icon: InboxIcon, tone: "bg-slate-100 text-muted" },
+  meeting_booked: { icon: CalendarIcon, tone: "bg-emerald-bright/15 text-emerald-deep" },
+  meeting_reminder: { icon: ClockIcon, tone: "bg-slate-100 text-ink" },
+  meeting_invite: { icon: CalendarIcon, tone: "bg-emerald/10 text-emerald-deep" },
+  scheduling_link_request: { icon: CalendarIcon, tone: "bg-alert-amber/10 text-alert-amber" },
 };
 
 // Calendar days in IST, so "Today" matches what users in India see on the clock.

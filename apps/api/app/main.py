@@ -21,6 +21,7 @@ from app.routers import (
     investor,
     matches,
     me,
+    meetings,
     mentor,
     notifications,
     posts,
@@ -134,3 +135,4 @@ app.include_router(intros.router)
 app.include_router(notifications.router)
 app.include_router(privacy.router)
 app.include_router(posts.router)
+app.include_router(meetings.router)

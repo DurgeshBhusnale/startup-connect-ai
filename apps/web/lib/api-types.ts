@@ -264,6 +264,43 @@ export type MatchDetailResponse = {
   scoring: FeatureScore[];
   badges: BadgesResponse;
   state: MatchState;
+  upcoming_meeting: MeetingItem | null;
+};
+
+export type MeetingItem = {
+  meeting_id: string;
+  scheduled_at: string;
+  ends_at: string;
+  duration_minutes: number;
+  title: string | null;
+  video_url: string | null;
+  status: "scheduled" | "cancelled";
+  host_is_me: boolean;
+  booked_by_me: boolean;
+};
+
+export type SchedulingContext = {
+  match_id: string;
+  connection: ConnectionStatus;
+  can_schedule: boolean;
+  partner: MatchProfileCard;
+  partner_cal_link: string | null;
+  my_cal_link: string | null;
+  host: "partner" | "me" | null;
+  upcoming_meeting: MeetingItem | null;
+};
+
+export type SchedulingLinkResponse = {
+  cal_link: string | null;
+  booking_url: string | null;
+};
+
+export type MeetingCreatedResponse = {
+  meeting_id: string;
+};
+
+export type NudgeResponse = {
+  status: "sent" | "already_sent";
 };
 
 export type MatchItem = {
@@ -314,6 +351,7 @@ export type NotificationPreferences = {
   intro_requests: boolean;
   mutual_matches: boolean;
   interest: boolean;
+  meetings: boolean;
 };
 
 export type DataExportResponse = {
@@ -381,7 +419,11 @@ export type NotificationKind =
   | "mutual_match"
   | "match_interest"
   | "matching_paused"
-  | "intro_cancelled";
+  | "intro_cancelled"
+  | "meeting_booked"
+  | "meeting_reminder"
+  | "meeting_invite"
+  | "scheduling_link_request";
 
 export type NotificationItem = {
   id: string;

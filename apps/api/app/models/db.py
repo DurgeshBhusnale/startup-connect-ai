@@ -79,6 +79,7 @@ class Profile(Base):
     kind: Mapped[AppRole] = mapped_column(_pg_enum(AppRole, "app_role"))
     l1_data: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
     ask_pin: Mapped[str | None] = mapped_column(Text)
+    cal_link: Mapped[str | None] = mapped_column(Text)
     embedding_v: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     l1_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -264,6 +265,36 @@ class PostMedia(Base):
     width: Mapped[int] = mapped_column(Integer)
     height: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Meeting(Base):
+    __tablename__ = "meetings"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    founder_profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE")
+    )
+    partner_profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE")
+    )
+    booked_by_profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE")
+    )
+    host_profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE")
+    )
+    cal_booking_uid: Mapped[str] = mapped_column(Text, unique=True)
+    title: Mapped[str | None] = mapped_column(Text)
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    video_url: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text, server_default=text("'scheduled'"))
+    reminder_24h_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reminder_1h_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Notification(Base):

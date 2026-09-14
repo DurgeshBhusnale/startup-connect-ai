@@ -19,6 +19,7 @@ from app.models.db import (
     IntroRequest,
     InvestorThesis,
     Match,
+    Meeting,
     MentorExpertise,
     Notification,
     Post,
@@ -292,6 +293,15 @@ async def build_data_export(
                 or_(
                     IntroRequest.founder_profile_id.in_(profile_ids),
                     IntroRequest.partner_profile_id.in_(profile_ids),
+                )
+            ),
+        ),
+        "meetings": await _dump(
+            session,
+            select(Meeting).where(
+                or_(
+                    Meeting.founder_profile_id.in_(profile_ids),
+                    Meeting.partner_profile_id.in_(profile_ids),
                 )
             ),
         ),
