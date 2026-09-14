@@ -7,8 +7,8 @@ export default function MatchDetailLoading() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-start">
         <div className={`${cardStyles} flex flex-col items-center gap-4 p-6`}>
           <div className="h-24 w-24 animate-pulse rounded-full bg-slate-100" />
-          <div className="h-6 w-40 animate-pulse rounded-md bg-slate-100" />
-          <div className="h-4 w-48 animate-pulse rounded-md bg-slate-100" />
+          <div className="h-6 w-2/3 animate-pulse rounded-md bg-slate-100" />
+          <div className="h-4 w-3/4 animate-pulse rounded-md bg-slate-100" />
           <p role="status" className="text-small text-muted">
             Loading match…
           </p>

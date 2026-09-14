@@ -3,42 +3,38 @@ import Link from "next/link";
 
 import { Logo } from "@/components/brand/logo";
 import { BellIcon, SearchIcon } from "@/components/icons";
+import { initialsOf } from "@/lib/feedback";
 
 import { BottomTabs, Breadcrumb, MobileNav, SidebarNav } from "./app-nav";
 
+import type { NavBadges } from "./app-nav";
+import type { AppRole } from "@/lib/api-types";
 import type { ReactNode } from "react";
 
 type AppShellProps = {
   displayName: string;
   roleLabel: string;
+  role: AppRole;
+  badges: NavBadges;
   children: ReactNode;
 };
 
-function initialsFor(name: string): string {
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("");
-  return initials || "SC";
-}
-
-export function AppShell({ displayName, roleLabel, children }: AppShellProps) {
+export function AppShell({ displayName, roleLabel, role, badges, children }: AppShellProps) {
+  const unread = badges.unreadNotifications;
   return (
     <div className="min-h-screen bg-slate-50 lg:flex">
       <aside className="hidden w-sidebar shrink-0 flex-col bg-ink lg:sticky lg:top-0 lg:flex lg:h-screen">
         <div className="px-6 py-6">
           <Logo tone="light" href="/home" />
         </div>
-        <SidebarNav />
+        <SidebarNav role={role} badges={badges} />
         <div className="mt-auto p-4">
           <div className="flex items-center gap-3 rounded-lg bg-white/5 p-3">
             <span
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-deep text-meta font-semibold text-white"
               aria-hidden="true"
             >
-              {initialsFor(displayName)}
+              {initialsOf(displayName)}
             </span>
             <div className="min-w-0">
               <p className="truncate text-small font-medium text-white">{displayName}</p>
@@ -52,7 +48,12 @@ export function AppShell({ displayName, roleLabel, children }: AppShellProps) {
         <header className="sticky top-0 z-30 border-b border-line bg-white">
           <div className="flex items-center justify-between gap-4 px-4 py-2 lg:px-8">
             <div className="flex items-center gap-2 lg:hidden">
-              <MobileNav displayName={displayName} roleLabel={roleLabel} />
+              <MobileNav
+                displayName={displayName}
+                roleLabel={roleLabel}
+                role={role}
+                badges={badges}
+              />
               <Link href="/home" className="rounded-md leading-tight">
                 <span className="block font-heading text-base font-semibold text-ink">
                   Startup Connect
@@ -62,7 +63,7 @@ export function AppShell({ displayName, roleLabel, children }: AppShellProps) {
                 </span>
               </Link>
             </div>
-            <Breadcrumb />
+            <Breadcrumb role={role} />
             <div className="flex items-center gap-2">
               <Link
                 href="/search"
@@ -73,10 +74,16 @@ export function AppShell({ displayName, roleLabel, children }: AppShellProps) {
               </Link>
               <Link
                 href="/notifications"
-                aria-label="Notifications"
-                className="flex h-12 w-12 items-center justify-center rounded-md text-ink hover:bg-slate-50"
+                aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
+                className="relative flex h-12 w-12 items-center justify-center rounded-md text-ink hover:bg-slate-50"
               >
                 <BellIcon className="h-6 w-6" />
+                {unread > 0 ? (
+                  <span
+                    aria-hidden="true"
+                    className="absolute right-3 top-3 h-2 w-2 rounded-full bg-emerald-bright ring-2 ring-white"
+                  />
+                ) : null}
               </Link>
               <UserButton appearance={{ elements: { avatarBox: "h-8 w-8" } }} />
             </div>
@@ -87,7 +94,7 @@ export function AppShell({ displayName, roleLabel, children }: AppShellProps) {
         </main>
       </div>
 
-      <BottomTabs />
+      <BottomTabs role={role} badges={badges} />
     </div>
   );
 }

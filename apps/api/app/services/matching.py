@@ -8,14 +8,14 @@ from uuid import UUID
 
 from fastapi import BackgroundTasks
 from pydantic import ValidationError
-from sqlalchemy import delete, select, update
+from sqlalchemy import and_, delete, exists, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db.session import get_session_factory
 from app.errors import ProblemError, UpstreamServiceError
-from app.models.db import AppRole, Match, PriorInvestment, Profile, User
+from app.models.db import AppRole, IntroRequest, Match, PriorInvestment, Profile, User
 from app.models.investor import PriorInvestmentItem
 from app.models.matches import (
     ExplanationResponse,
@@ -25,15 +25,17 @@ from app.models.matches import (
     MatchDetailResponse,
     MatchExplanation,
     MatchItem,
-    MatchProfileCard,
     MentorMatchDetails,
     RecomputeResponse,
+    SavedMatchItem,
     StoredExplanation,
 )
-from app.models.taxonomy import AVAILABILITY_LABELS, GEOGRAPHY_LABELS, STAGE_LABELS
+from app.models.notifications import NotificationKind
 from app.services import embeddings, vector_store
 from app.services.badges import badges_for_profile
 from app.services.clerk import ClerkIdentity, fetch_clerk_identity
+from app.services.connections import ROLE_NOUNS, display_name, states_for
+from app.services.match_cards import profile_card
 from app.services.match_explanations import (
     ExplanationError,
     ExplanationState,
@@ -42,12 +44,12 @@ from app.services.match_explanations import (
 )
 from app.services.match_scoring import (
     ContentScore,
-    format_inr,
     investor_filter,
     mentor_filter,
     score_founder_investor,
     score_founder_mentor,
 )
+from app.services.notifications import notify
 from app.services.profile_lookup import l1_text
 from app.services.profile_snapshots import (
     ProfileSnapshot,
@@ -61,6 +63,7 @@ logger = logging.getLogger(__name__)
 
 MIN_VISIBLE_FIT = 0.5
 MAX_VISIBLE_MATCHES = 8
+MAX_SAVED_MATCHES = 50
 COLD_START_FEEDBACK_EVENTS = 10
 MAX_NAME_LOOKUPS = 25
 EXPLANATION_CONCURRENCY = 4
@@ -180,9 +183,42 @@ async def _semantic_similarities(
         return None
 
 
+def _notify_new_matches(
+    session: AsyncSession,
+    viewer: ProfileSnapshot,
+    new_matches: list[tuple[UUID, ProfileSnapshot, float]],
+) -> None:
+    if not new_matches:
+        return
+    if len(new_matches) == 1:
+        match_id, candidate, fit_score = new_matches[0]
+        notify(
+            session,
+            user_id=viewer.user_id,
+            kind=NotificationKind.NEW_MATCH,
+            title=(
+                f"New match: {display_name(candidate)} ({ROLE_NOUNS[candidate.kind]}) · "
+                f"{round(fit_score * 100)}% fit"
+            ),
+            action_label="View match",
+            action_href=f"/matches/{match_id}",
+        )
+        return
+    notify(
+        session,
+        user_id=viewer.user_id,
+        kind=NotificationKind.NEW_MATCHES,
+        title=f"{len(new_matches)} new matches",
+        body="Ranked by fit, each with a reason.",
+        action_label="Browse matches",
+        action_href="/matches",
+    )
+
+
 async def compute_matches(session: AsyncSession, clerk_user_id: str) -> RecomputeResponse:
     started = perf_counter()
     viewer = await _viewer_or_error(session, clerk_user_id)
+    had_previous_run = isinstance(viewer.l1_data.get("matching"), dict)
     kinds = (
         [AppRole.INVESTOR, AppRole.MENTOR] if viewer.kind == AppRole.FOUNDER else [AppRole.FOUNDER]
     )
@@ -202,7 +238,8 @@ async def compute_matches(session: AsyncSession, clerk_user_id: str) -> Recomput
         )
     }
 
-    # Feedback events (M9) don't exist yet, so every viewer is cold-start: alpha = 1.0.
+    # Feedback events are recorded since M9, but the collaborative model that turns them into
+    # collab_score isn't trained yet, so ranking stays content-only (alpha = 1.0).
     alpha = ranking_alpha(feedback_events=0)
     collab_score = 0.0
     rows: list[dict[str, Any]] = []
@@ -231,14 +268,31 @@ async def compute_matches(session: AsyncSession, clerk_user_id: str) -> Recomput
         )
 
     current_ids = [row["to_profile_id"] for row in rows]
+    # Saved, hidden, or connected matches survive a refresh even if the candidate no longer fits.
+    has_intro = exists().where(
+        or_(
+            and_(
+                IntroRequest.founder_profile_id == Match.from_profile_id,
+                IntroRequest.partner_profile_id == Match.to_profile_id,
+            ),
+            and_(
+                IntroRequest.founder_profile_id == Match.to_profile_id,
+                IntroRequest.partner_profile_id == Match.from_profile_id,
+            ),
+        )
+    )
     await session.execute(
         delete(Match).where(
-            Match.from_profile_id == viewer.profile_id, Match.to_profile_id.not_in(current_ids)
+            Match.from_profile_id == viewer.profile_id,
+            Match.to_profile_id.not_in(current_ids),
+            Match.saved_at.is_(None),
+            Match.rejected_at.is_(None),
+            ~has_intro,
         )
     )
     if rows:
         statement = insert(Match).values(rows)
-        await session.execute(
+        upserted = await session.execute(
             statement.on_conflict_do_update(
                 index_elements=[Match.from_profile_id, Match.to_profile_id],
                 set_={
@@ -248,8 +302,21 @@ async def compute_matches(session: AsyncSession, clerk_user_id: str) -> Recomput
                     "explanation": statement.excluded.explanation,
                     "features": statement.excluded.features,
                 },
-            )
+            ).returning(Match.id, Match.to_profile_id, Match.fit_score)
         )
+        if had_previous_run:
+            by_id = {candidate.profile_id: candidate for candidate in candidates}
+            _notify_new_matches(
+                session,
+                viewer,
+                [
+                    (row.id, by_id[row.to_profile_id], row.fit_score)
+                    for row in upserted.all()
+                    if row.to_profile_id not in existing_explanations
+                    and row.fit_score >= MIN_VISIBLE_FIT
+                    and row.to_profile_id in by_id
+                ],
+            )
 
     profile = await session.get(Profile, viewer.profile_id)
     if profile is not None:
@@ -327,7 +394,11 @@ async def _visible_matches(
     return (
         await session.scalars(
             select(Match)
-            .where(Match.from_profile_id == viewer.profile_id, Match.fit_score >= MIN_VISIBLE_FIT)
+            .where(
+                Match.from_profile_id == viewer.profile_id,
+                Match.fit_score >= MIN_VISIBLE_FIT,
+                Match.rejected_at.is_(None),
+            )
             .order_by(Match.fit_score.desc())
             .limit(limit)
         )
@@ -378,104 +449,62 @@ def _needs_recompute(viewer: ProfileSnapshot) -> bool:
     return datetime.now(UTC) - computed_at > timedelta(hours=get_settings().match_refresh_hours)
 
 
-def _card(snapshot: ProfileSnapshot) -> MatchProfileCard:
-    if snapshot.founder is not None:
-        founder = snapshot.founder
-        stage = STAGE_LABELS[founder.stage.value]
-        return MatchProfileCard(
-            profile_id=snapshot.profile_id,
-            kind="founder",
-            display_name=snapshot.display_name or founder.startup_name,
-            headline=f"{founder.startup_name} · {founder.sector.value} · {stage}",
-            location=founder.city,
-            bio=snapshot.bio or founder.description,
-            facts=[
-                f"Raising {format_inr(founder.ask_amount_inr)}",
-                founder.business_model.value,
-                f"Team of {founder.team_size}",
-            ],
+async def _ensure_fresh(
+    session: AsyncSession, viewer: ProfileSnapshot, clerk_user_id: str, background: BackgroundTasks
+) -> None:
+    if not _needs_recompute(viewer):
+        return
+    has_matches = (
+        await session.scalar(
+            select(Match.id).where(Match.from_profile_id == viewer.profile_id).limit(1)
         )
-    if snapshot.thesis is not None:
-        thesis = snapshot.thesis
-        facts = [", ".join(STAGE_LABELS[stage.value] for stage in thesis.stages)]
-        if thesis.cheque_min is not None and thesis.cheque_max is not None:
-            low, high = format_inr(thesis.cheque_min), format_inr(thesis.cheque_max)
-            facts.insert(0, f"{low} to {high} cheque")
-        return MatchProfileCard(
-            profile_id=snapshot.profile_id,
-            kind="investor",
-            display_name=snapshot.display_name or "Investor",
-            headline=f"Investor · {' & '.join(sector.value for sector in thesis.sectors[:2])}",
-            location=", ".join(GEOGRAPHY_LABELS[geo] for geo in thesis.geographies[:3]),
-            bio=snapshot.bio,
-            facts=facts,
-        )
-    expertise = snapshot.expertise
-    areas = expertise.areas if expertise is not None else []
-    return MatchProfileCard(
-        profile_id=snapshot.profile_id,
-        kind="mentor",
-        display_name=snapshot.display_name or "Mentor",
-        headline=f"Mentor · {' & '.join(area.value for area in areas[:2])}",
-        location=None,
-        bio=snapshot.bio,
-        facts=(
-            [
-                AVAILABILITY_LABELS[expertise.availability],
-                f"{format_inr(expertise.session_fee)} / session"
-                if expertise.session_fee
-                else "Free sessions",
-            ]
-            if expertise is not None
-            else []
-        ),
+        is not None
     )
+    if has_matches:
+        background.add_task(recompute_in_background, clerk_user_id)
+        return
+    try:
+        await compute_matches(session, clerk_user_id)
+    except ProblemError:
+        raise
+    except Exception as exc:
+        logger.exception("On-demand match computation failed")
+        raise _unavailable() from exc
 
 
-async def list_matches(
-    session: AsyncSession, clerk_user_id: str, limit: int, background: BackgroundTasks
-) -> list[MatchItem]:
-    viewer = await _viewer_or_error(session, clerk_user_id)
-    if _needs_recompute(viewer):
-        has_matches = (
-            await session.scalar(
-                select(Match.id).where(Match.from_profile_id == viewer.profile_id).limit(1)
-            )
-            is not None
-        )
-        if has_matches:
-            background.add_task(recompute_in_background, clerk_user_id)
-        else:
-            try:
-                await compute_matches(session, clerk_user_id)
-            except ProblemError:
-                raise
-            except Exception as exc:
-                logger.exception("On-demand match computation failed")
-                raise _unavailable() from exc
-
-    matches = await _visible_matches(session, viewer, limit)
+async def _match_items(
+    session: AsyncSession,
+    viewer: ProfileSnapshot,
+    matches: Sequence[Match],
+    clerk_user_id: str,
+    background: BackgroundTasks,
+) -> list[tuple[Match, MatchItem]]:
     snapshots = await load_by_ids(session, [match.to_profile_id for match in matches])
-    items: list[MatchItem] = []
+    states = await states_for(session, viewer, matches)
+    items: list[tuple[Match, MatchItem]] = []
     pending: list[UUID] = []
     for match in matches:
         candidate = snapshots.get(match.to_profile_id)
-        state = explanation_state(match.explanation, match.features, viewer.kind)
-        if candidate is None or not candidate.matchable or state is None:
+        explanation = explanation_state(match.explanation, match.features, viewer.kind)
+        if candidate is None or not candidate.matchable or explanation is None:
             continue
-        if state.needs_llm and match.id not in _explaining:
+        if explanation.needs_llm and match.id not in _explaining:
             pending.append(match.id)
         items.append(
-            MatchItem(
-                match_id=match.id,
-                to_profile=_card(candidate),
-                fit_score=match.fit_score,
-                content_score=match.content_score,
-                collab_score=match.collab_score,
-                explanation=MatchExplanation(
-                    source=state.stored.source,
-                    short=state.stored.short,
-                    features_used=state.stored.features_used,
+            (
+                match,
+                MatchItem(
+                    match_id=match.id,
+                    to_profile=profile_card(candidate),
+                    fit_score=match.fit_score,
+                    content_score=match.content_score,
+                    collab_score=match.collab_score,
+                    explanation=MatchExplanation(
+                        source=explanation.stored.source,
+                        short=explanation.stored.short,
+                        features_used=explanation.stored.features_used,
+                    ),
+                    state=states[match.id],
                 ),
             )
         )
@@ -483,6 +512,40 @@ async def list_matches(
     if pending:
         background.add_task(explain_in_background, clerk_user_id, pending)
     return items
+
+
+async def list_matches(
+    session: AsyncSession, clerk_user_id: str, limit: int, background: BackgroundTasks
+) -> list[MatchItem]:
+    viewer = await _viewer_or_error(session, clerk_user_id)
+    await _ensure_fresh(session, viewer, clerk_user_id, background)
+    matches = await _visible_matches(session, viewer, limit)
+    return [
+        item for _, item in await _match_items(session, viewer, matches, clerk_user_id, background)
+    ]
+
+
+async def list_saved_matches(
+    session: AsyncSession, clerk_user_id: str, background: BackgroundTasks
+) -> list[SavedMatchItem]:
+    viewer = await _viewer_or_error(session, clerk_user_id)
+    matches = (
+        await session.scalars(
+            select(Match)
+            .where(
+                Match.from_profile_id == viewer.profile_id,
+                Match.saved_at.is_not(None),
+                Match.rejected_at.is_(None),
+            )
+            .order_by(Match.saved_at.desc())
+            .limit(MAX_SAVED_MATCHES)
+        )
+    ).all()
+    return [
+        SavedMatchItem.model_validate({**item.model_dump(), "saved_at": match.saved_at})
+        for match, item in await _match_items(session, viewer, matches, clerk_user_id, background)
+        if match.saved_at is not None
+    ]
 
 
 async def _owned_match(
@@ -565,16 +628,18 @@ async def get_match_detail(
         if state is not None
         else []
     )
+    states = await states_for(session, viewer, [match])
     return MatchDetailResponse(
         match_id=match.id,
         fit_score=match.fit_score,
         content_score=match.content_score,
         collab_score=match.collab_score,
         updated_at=match.updated_at,
-        to_profile=_card(candidate),
+        to_profile=profile_card(candidate),
         details=details,
         scoring=scoring,
         badges=await badges_for_profile(session, profile),
+        state=states[match.id],
     )
 
 

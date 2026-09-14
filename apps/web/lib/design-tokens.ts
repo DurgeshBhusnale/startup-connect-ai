@@ -71,6 +71,7 @@ export const sizes = {
   onboarding: "640px",
   "onboarding-wide": "760px",
   modal: "560px",
+  feed: "800px", // single-column feeds: notifications, intro queue
   content: "1200px",
 } as const;
 

@@ -15,7 +15,7 @@ from app.config import get_settings
 from app.errors import ProblemError, UpstreamServiceError, problem_response
 from app.middleware.auth import ClerkAuthMiddleware
 from app.models.common import ProblemDetail
-from app.routers import health, investor, matches, me, mentor, profiles
+from app.routers import health, intros, investor, matches, me, mentor, notifications, profiles
 from app.services import embeddings
 
 settings = get_settings()
@@ -119,3 +119,5 @@ app.include_router(profiles.router)
 app.include_router(investor.router)
 app.include_router(mentor.router)
 app.include_router(matches.router)
+app.include_router(intros.router)
+app.include_router(notifications.router)

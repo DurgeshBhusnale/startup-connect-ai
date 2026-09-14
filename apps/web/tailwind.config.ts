@@ -40,6 +40,7 @@ const config: Config = {
         onboarding: sizes.onboarding,
         "onboarding-wide": sizes["onboarding-wide"],
         modal: sizes.modal,
+        feed: sizes.feed,
       },
     },
   },

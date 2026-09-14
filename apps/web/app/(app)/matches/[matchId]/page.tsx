@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { ArrowLeftIcon, LockIcon, MapPinIcon } from "@/components/icons";
+import { MatchActions } from "@/components/matches/match-actions";
 import {
   MatchExplanationPanel,
   MatchExplanationSkeleton,
@@ -13,6 +15,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { FitBadge } from "@/components/ui/fit-badge";
 import { RetryButton } from "@/components/ui/retry-button";
 import { getMatchDetail } from "@/lib/matches-api";
+import { getMe } from "@/lib/me";
 import { cardStyles } from "@/lib/ui";
 
 import type { ProfileTab } from "@/components/profile/profile-tabs";
@@ -43,7 +46,11 @@ type MatchDetailPageProps = {
 };
 
 export default async function MatchDetailPage({ params, searchParams }: MatchDetailPageProps) {
-  const [{ matchId }, { tab }] = await Promise.all([params, searchParams]);
+  const [{ matchId }, { tab }, me] = await Promise.all([params, searchParams, getMe()]);
+  if (!me.role) {
+    redirect("/onboarding");
+  }
+  const role = me.role;
   const result = await getMatchDetail(matchId);
 
   if (result.status !== "ok") {
@@ -96,6 +103,16 @@ export default async function MatchDetailPage({ params, searchParams }: MatchDet
           ) : null}
           <div className="mt-4">
             <FitBadge value={Math.round(detail.fit_score * 100)} />
+          </div>
+          <div className="mt-6 w-full text-left">
+            <MatchActions
+              matchId={detail.match_id}
+              role={role}
+              partnerName={profile.display_name}
+              partnerHeadline={profile.headline}
+              initialState={detail.state}
+              layout="stacked"
+            />
           </div>
           {profile.bio ? <p className="mt-4 text-small text-ink">{profile.bio}</p> : null}
           {profile.facts.length > 0 ? (

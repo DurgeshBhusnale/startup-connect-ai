@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.models.feedback import MatchState
 from app.models.founder import FounderL1Data
 from app.models.investor import PriorInvestmentItem, ThesisData
 from app.models.mentor import MentorExpertiseData
@@ -82,6 +83,11 @@ class MatchItem(BaseModel):
     content_score: float
     collab_score: float
     explanation: MatchExplanation
+    state: MatchState
+
+
+class SavedMatchItem(MatchItem):
+    saved_at: datetime
 
 
 class FeatureScore(BaseModel):
@@ -124,6 +130,7 @@ class MatchDetailResponse(BaseModel):
     details: MatchDetails
     scoring: list[FeatureScore]
     badges: BadgesResponse
+    state: MatchState
 
 
 class RecomputeResponse(BaseModel):

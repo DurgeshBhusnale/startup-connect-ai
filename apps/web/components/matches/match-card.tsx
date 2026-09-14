@@ -5,6 +5,7 @@ import { FitBadge } from "@/components/ui/fit-badge";
 import { cardStyles } from "@/lib/ui";
 
 import type { MatchItem } from "@/lib/api-types";
+import type { ReactNode } from "react";
 
 const HIGH_FIT = 0.8;
 
@@ -27,9 +28,11 @@ function initialsFor(name: string): string {
 type MatchCardProps = {
   match: MatchItem;
   compact?: boolean;
+  /** Actions row; sits above the stretched card link so its buttons stay clickable. */
+  footer?: ReactNode;
 };
 
-export function MatchCard({ match, compact = false }: MatchCardProps) {
+export function MatchCard({ match, compact = false, footer }: MatchCardProps) {
   const profile = match.to_profile;
   const percent = Math.round(match.fit_score * 100);
 
@@ -92,6 +95,8 @@ export function MatchCard({ match, compact = false }: MatchCardProps) {
       {!compact && profile.bio ? (
         <p className="line-clamp-2 text-small text-muted">{profile.bio}</p>
       ) : null}
+
+      {footer ? <div className="relative z-10 border-t border-line pt-4">{footer}</div> : null}
     </article>
   );
 }

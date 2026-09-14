@@ -153,7 +153,7 @@ function InvestorOverview({
           <div>
             <dt className={labelClass}>Cheque range</dt>
             <dd className="mt-2 flex items-center gap-2 font-heading text-h3 text-ink">
-              <BanknoteIcon className="h-5 w-5 text-muted" />
+              <BanknoteIcon className="h-6 w-6 text-muted" />
               {chequeRange}
             </dd>
           </div>

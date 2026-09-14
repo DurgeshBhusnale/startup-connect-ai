@@ -9,6 +9,7 @@ import {
   BellIcon,
   CircleUserIcon,
   HomeIcon,
+  InboxIcon,
   LayoutDashboardIcon,
   MenuIcon,
   MessageSquareIcon,
@@ -20,36 +21,60 @@ import {
 } from "@/components/icons";
 
 import type { IconComponent } from "@/components/icons";
+import type { AppRole } from "@/lib/api-types";
 
-type NavItem = { href: string; label: string; icon: IconComponent };
+export type NavBadges = { unreadNotifications: number; pendingIntros: number };
 
-const sidebarItems: readonly NavItem[] = [
-  { href: "/home", label: "Home", icon: LayoutDashboardIcon },
-  { href: "/profile", label: "My Profile", icon: UserIcon },
-  { href: "/matches", label: "Matches", icon: SparklesIcon },
-  { href: "/messages", label: "Messages", icon: MessageSquareIcon },
-  { href: "/search", label: "Search", icon: SearchIcon },
-  { href: "/notifications", label: "Notifications", icon: BellIcon },
-  { href: "/settings", label: "Settings", icon: SettingsIcon },
-];
+type NavItem = {
+  href: string;
+  label: string;
+  icon: IconComponent;
+  badge?: keyof NavBadges;
+};
 
-const tabItems: readonly NavItem[] = [
-  { href: "/home", label: "Home", icon: HomeIcon },
-  { href: "/matches", label: "Matches", icon: SparklesIcon },
-  { href: "/messages", label: "Messages", icon: MessageSquareIcon },
-  { href: "/profile", label: "Profile", icon: CircleUserIcon },
-];
+function sidebarItemsFor(role: AppRole): readonly NavItem[] {
+  return [
+    { href: "/home", label: "Home", icon: LayoutDashboardIcon },
+    { href: "/profile", label: "My Profile", icon: UserIcon },
+    { href: "/matches", label: "Matches", icon: SparklesIcon },
+    ...(role === "founder"
+      ? []
+      : [{ href: "/intros", label: "Intro queue", icon: InboxIcon, badge: "pendingIntros" as const }]),
+    { href: "/messages", label: "Messages", icon: MessageSquareIcon },
+    { href: "/search", label: "Search", icon: SearchIcon },
+    { href: "/notifications", label: "Notifications", icon: BellIcon, badge: "unreadNotifications" },
+    { href: "/settings", label: "Settings", icon: SettingsIcon },
+  ];
+}
+
+function tabItemsFor(role: AppRole): readonly NavItem[] {
+  return [
+    { href: "/home", label: "Home", icon: HomeIcon },
+    { href: "/matches", label: "Matches", icon: SparklesIcon },
+    role === "founder"
+      ? { href: "/messages", label: "Messages", icon: MessageSquareIcon }
+      : { href: "/intros", label: "Queue", icon: InboxIcon, badge: "pendingIntros" },
+    { href: "/profile", label: "Profile", icon: CircleUserIcon },
+  ];
+}
 
 function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+function badgeText(count: number): string {
+  return count > 99 ? "99+" : String(count);
+}
+
+type SidebarNavProps = { role: AppRole; badges: NavBadges; onNavigate?: () => void };
+
+export function SidebarNav({ role, badges, onNavigate }: SidebarNavProps) {
   const pathname = usePathname();
   return (
     <nav aria-label="App" className="flex flex-col gap-1 px-4">
-      {sidebarItems.map((item) => {
+      {sidebarItemsFor(role).map((item) => {
         const active = isActive(pathname, item.href);
+        const count = item.badge ? badges[item.badge] : 0;
         return (
           <Link
             key={item.href}
@@ -61,7 +86,18 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             }`}
           >
             <item.icon className="h-4 w-4" />
-            {item.label}
+            <span className="flex-1">{item.label}</span>
+            {count > 0 ? (
+              <span
+                className={`rounded-full px-2 font-mono text-meta ${
+                  active ? "bg-ink text-white" : "bg-emerald-bright text-ink"
+                }`}
+              >
+                <span className="sr-only">(</span>
+                {badgeText(count)}
+                <span className="sr-only"> new)</span>
+              </span>
+            ) : null}
           </Link>
         );
       })}
@@ -69,9 +105,10 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function Breadcrumb() {
+export function Breadcrumb({ role }: { role: AppRole }) {
   const pathname = usePathname();
-  const current = sidebarItems.find((item) => isActive(pathname, item.href))?.label ?? "Home";
+  const current =
+    sidebarItemsFor(role).find((item) => isActive(pathname, item.href))?.label ?? "Home";
   return (
     <nav aria-label="Breadcrumb" className="hidden items-center gap-2 text-small lg:flex">
       <span className="text-muted">Workspace</span>
@@ -85,9 +122,14 @@ export function Breadcrumb() {
   );
 }
 
-type MobileNavProps = { displayName: string; roleLabel: string };
+type MobileNavProps = {
+  displayName: string;
+  roleLabel: string;
+  role: AppRole;
+  badges: NavBadges;
+};
 
-export function MobileNav({ displayName, roleLabel }: MobileNavProps) {
+export function MobileNav({ displayName, roleLabel, role, badges }: MobileNavProps) {
   const [open, setOpen] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -143,7 +185,7 @@ export function MobileNav({ displayName, roleLabel }: MobileNavProps) {
                 <XIcon className="h-6 w-6" />
               </button>
             </div>
-            <SidebarNav onNavigate={close} />
+            <SidebarNav role={role} badges={badges} onNavigate={close} />
             <p className="mt-auto px-6 pt-4 text-meta text-white/60">
               {displayName} · {roleLabel}
             </p>
@@ -154,15 +196,16 @@ export function MobileNav({ displayName, roleLabel }: MobileNavProps) {
   );
 }
 
-export function BottomTabs() {
+export function BottomTabs({ role, badges }: { role: AppRole; badges: NavBadges }) {
   const pathname = usePathname();
   return (
     <nav
       aria-label="Primary"
       className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-line bg-white lg:hidden"
     >
-      {tabItems.map((item) => {
+      {tabItemsFor(role).map((item) => {
         const active = isActive(pathname, item.href);
+        const count = item.badge ? badges[item.badge] : 0;
         return (
           <Link
             key={item.href}
@@ -172,7 +215,16 @@ export function BottomTabs() {
               active ? "font-medium text-emerald-deep" : "text-muted"
             }`}
           >
-            <item.icon className="h-6 w-6" />
+            <span className="relative">
+              <item.icon className="h-6 w-6" />
+              {count > 0 ? (
+                <span className="absolute -right-2 -top-1 rounded-full bg-emerald-bright px-1 font-mono text-meta leading-none text-ink">
+                  <span className="sr-only">(</span>
+                  {badgeText(count)}
+                  <span className="sr-only"> new)</span>
+                </span>
+              ) : null}
+            </span>
             {item.label}
           </Link>
         );

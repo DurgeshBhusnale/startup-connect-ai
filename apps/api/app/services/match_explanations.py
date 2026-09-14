@@ -137,6 +137,14 @@ def _party(snapshot: ProfileSnapshot) -> dict[str, str]:
     return party
 
 
+def numbers_in(text: str) -> set[str]:
+    return set(_NUMBER.findall(text))
+
+
+def positive_names(features: Mapping[str, FeatureDetail]) -> list[str]:
+    return _positive_names(features)
+
+
 def _allowed_numbers(features: Mapping[str, FeatureDetail]) -> set[str]:
     facts = " ".join(
         " ".join([feature.reason, feature.concern or "", *(c.value for c in feature.citations)])
@@ -145,7 +153,7 @@ def _allowed_numbers(features: Mapping[str, FeatureDetail]) -> set[str]:
     return set(_NUMBER.findall(facts))
 
 
-def _grounded(text: str, allowed_numbers: set[str]) -> bool:
+def is_grounded(text: str, allowed_numbers: set[str]) -> bool:
     # Every number the LLM writes must come from a scoring fact (hallucination guard).
     if _GENDERED.search(text):
         return False
@@ -168,7 +176,7 @@ def _signal_texts(
         if not isinstance(text, str):
             continue
         cleaned = " ".join(text.split())
-        if cleaned and len(cleaned) <= BULLET_LIMIT and _grounded(cleaned, allowed_numbers):
+        if cleaned and len(cleaned) <= BULLET_LIMIT and is_grounded(cleaned, allowed_numbers):
             texts[name] = cleaned
     return texts
 
@@ -231,7 +239,7 @@ async def generate_llm_explanation(
         truncate_words(raw_short)
         if isinstance(raw_short, str)
         and raw_short.strip()
-        and _grounded(raw_short, allowed_numbers)
+        and is_grounded(raw_short, allowed_numbers)
         else None
     )
     if short is None and not positive_texts and not concern_texts:

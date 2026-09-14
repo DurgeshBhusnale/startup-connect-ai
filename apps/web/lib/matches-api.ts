@@ -3,7 +3,12 @@ import { redirect, unstable_rethrow } from "next/navigation";
 
 import { ApiError, apiRequest } from "@/lib/api";
 
-import type { ExplanationResponse, MatchDetailResponse, MatchItem } from "@/lib/api-types";
+import type {
+  ExplanationResponse,
+  MatchDetailResponse,
+  MatchItem,
+  SavedMatchItem,
+} from "@/lib/api-types";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -37,6 +42,21 @@ export async function getMatches(limit = 8): Promise<MatchesResult> {
       return { status: "incomplete" };
     }
     console.error("Loading matches failed", error);
+    return { status: "unavailable" };
+  }
+}
+
+export async function getSavedMatches(): Promise<MatchesResult> {
+  const token = await requireToken();
+  try {
+    const matches = await apiRequest<SavedMatchItem[]>("/v1/matches/saved", { token });
+    return { status: "ok", matches };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError && error.status === 409) {
+      return { status: "incomplete" };
+    }
+    console.error("Loading saved matches failed", error);
     return { status: "unavailable" };
   }
 }

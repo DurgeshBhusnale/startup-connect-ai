@@ -260,6 +260,7 @@ export type MatchDetailResponse = {
   details: MatchDetails;
   scoring: FeatureScore[];
   badges: BadgesResponse;
+  state: MatchState;
 };
 
 export type MatchItem = {
@@ -269,6 +270,85 @@ export type MatchItem = {
   content_score: number;
   collab_score: number;
   explanation: MatchExplanation;
+  state: MatchState;
+};
+
+export type RejectReason =
+  | "wrong_sector"
+  | "wrong_stage"
+  | "wrong_geo"
+  | "not_right_person"
+  | "other";
+
+export type ConnectionStatus = "none" | "interested" | "pending" | "accepted" | "declined";
+
+export type MatchState = {
+  saved_at: string | null;
+  rejected: boolean;
+  connection: ConnectionStatus;
+  intro_id: string | null;
+};
+
+export type MatchActionType = "accept" | "reject" | "save" | "unsave" | "restore";
+
+export type MatchActionResponse = {
+  status: "ok";
+  updated_match_state: MatchState;
+};
+
+export type SavedMatchItem = MatchItem & { saved_at: string };
+
+export type IntroDraftResponse = {
+  draft: string;
+  source: "llm" | "unavailable";
+};
+
+export type IntroCreatedResponse = {
+  intro_id: string;
+  status: ConnectionStatus;
+};
+
+export type IntroRespondResponse = {
+  status: ConnectionStatus;
+  match_id: string;
+};
+
+export type IntroQueueItem = {
+  intro_id: string;
+  match_id: string;
+  founder: MatchProfileCard;
+  sector: string;
+  message: string;
+  fit_score: number;
+  requested_at: string;
+};
+
+export type NotificationKind =
+  | "new_match"
+  | "new_matches"
+  | "intro_received"
+  | "mutual_match"
+  | "match_interest";
+
+export type NotificationItem = {
+  id: string;
+  kind: NotificationKind;
+  title: string;
+  body: string | null;
+  action_label: string | null;
+  action_href: string | null;
+  read: boolean;
+  created_at: string;
+};
+
+export type NotificationsResponse = {
+  items: NotificationItem[];
+  unread_count: number;
+};
+
+export type NotificationSummary = {
+  unread_count: number;
+  pending_intros: number;
 };
 
 export type RecomputeResponse = {
