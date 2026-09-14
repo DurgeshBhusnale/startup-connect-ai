@@ -125,11 +125,11 @@ function FormSection({ index, title, children }: { index: number; title: string;
   );
 }
 
-function SubmitButton() {
+function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
     <button type="submit" disabled={pending} className={buttonStyles.primary}>
-      {pending ? "Saving…" : "Continue"}
+      {pending ? "Saving…" : label}
       {pending ? null : <ArrowRightIcon />}
     </button>
   );
@@ -139,11 +139,21 @@ type ProfileReviewFormProps = {
   draft: FounderProfileDraft | null;
   confidence: Record<string, number>;
   linkedinUrl: string | null;
+  initialValues?: FounderFormValues;
+  mode?: "onboarding" | "edit";
 };
 
-export function ProfileReviewForm({ draft, confidence, linkedinUrl }: ProfileReviewFormProps) {
+export function ProfileReviewForm({
+  draft,
+  confidence,
+  linkedinUrl,
+  initialValues,
+  mode = "onboarding",
+}: ProfileReviewFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
-  const [values, setValues] = useState<FounderFormValues>(() => draftToFormValues(draft, linkedinUrl));
+  const [values, setValues] = useState<FounderFormValues>(
+    () => initialValues ?? draftToFormValues(draft, linkedinUrl),
+  );
   const [edited, setEdited] = useState<ReadonlySet<FounderField>>(() => new Set());
   const [changedSinceSubmit, setChangedSinceSubmit] = useState<ReadonlySet<FounderField>>(
     () => new Set(),
@@ -217,6 +227,7 @@ export function ProfileReviewForm({ draft, confidence, linkedinUrl }: ProfileRev
       className="flex flex-col gap-8"
     >
       <input type="hidden" name="linkedin_url" value={values.linkedin_url} />
+      <input type="hidden" name="mode" value={mode} />
 
       <FormSection index={1} title="Basic details">
         <div className="grid gap-6 sm:grid-cols-2">
@@ -536,10 +547,13 @@ export function ProfileReviewForm({ draft, confidence, linkedinUrl }: ProfileRev
       ) : null}
 
       <div className="flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
-        <Link href="/onboarding/founder" className={buttonStyles.ghost}>
-          Back
+        <Link
+          href={mode === "edit" ? "/profile" : "/onboarding/founder"}
+          className={buttonStyles.ghost}
+        >
+          {mode === "edit" ? "Cancel" : "Back"}
         </Link>
-        <SubmitButton />
+        <SubmitButton label={mode === "edit" ? "Save changes" : "Continue"} />
       </div>
     </form>
   );

@@ -59,6 +59,9 @@ export type FounderProfileState = {
   profile_id: string;
   completed: boolean;
   draft: FounderDraftState | null;
+  l1_data: FounderL1Data | null;
+  bio: string | null;
+  website: string | null;
 };
 
 export type SaveProfileRequest = {
@@ -137,6 +140,7 @@ export type InvestorProfileState = {
   crunchbase_url: string | null;
   prior_investments_status: "added" | "skipped" | null;
   banner_dismissed: boolean;
+  bio: string | null;
 };
 
 export type MentorAvailability = "1-per-month" | "2-per-month" | "4-per-month" | "unlimited";
@@ -175,6 +179,24 @@ export type MentorProfileState = {
   completed: boolean;
   expertise: MentorExpertiseData | null;
   verification: MentorVerificationState | null;
+  bio: string | null;
+};
+
+export type AboutRequest = {
+  kind: AppRole;
+  bio: string | null;
+  website: string | null;
+};
+
+export type AboutResponse = {
+  profile_id: string;
+};
+
+export type BadgesResponse = {
+  verified_items: string[];
+  endorsed_items: { item_id: string; endorser_id: string; endorser_name: string }[];
+  self_reported_stale: string[];
+  last_updated: Record<string, string>;
 };
 
 export type ProblemDetail = {

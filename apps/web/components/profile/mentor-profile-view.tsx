@@ -10,18 +10,17 @@ import {
 import { availabilityLabel, stageLabel } from "@/lib/mentor-profile";
 import { buttonStyles, cardStyles } from "@/lib/ui";
 
-import type { MentorExpertiseData, MentorVerificationState } from "@/lib/api-types";
+import { ClaimStatus } from "./claim-status";
+import { ProfileAvatar } from "./profile-avatar";
+
+import type {
+  BadgesResponse,
+  MentorExpertiseData,
+  MentorVerificationState,
+} from "@/lib/api-types";
 import type { ReactNode } from "react";
 
-function initialsFor(name: string): string {
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("");
-  return initials || "M";
-}
+const linkClass = "rounded-md text-small font-medium text-emerald-deep hover:underline";
 
 function DetailRow({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
@@ -39,9 +38,17 @@ type MentorProfileViewProps = {
   displayName: string;
   expertise: MentorExpertiseData;
   verification: MentorVerificationState | null;
+  bio: string | null;
+  badges: BadgesResponse;
 };
 
-export function MentorProfileView({ displayName, expertise, verification }: MentorProfileViewProps) {
+export function MentorProfileView({
+  displayName,
+  expertise,
+  verification,
+  bio,
+  badges,
+}: MentorProfileViewProps) {
   const headline = `Mentor · ${expertise.areas.slice(0, 2).join(" & ")}`;
   const fee = expertise.session_fee
     ? `₹${expertise.session_fee.toLocaleString("en-IN")} / session`
@@ -50,12 +57,7 @@ export function MentorProfileView({ displayName, expertise, verification }: Ment
   return (
     <div className="mx-auto grid max-w-content gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-start">
       <section className={`${cardStyles} flex flex-col items-center p-6 text-center`}>
-        <span
-          aria-hidden="true"
-          className="flex h-24 w-24 items-center justify-center rounded-full bg-ink font-heading text-h2 text-white"
-        >
-          {initialsFor(displayName)}
-        </span>
+        <ProfileAvatar name={displayName} />
         <h1 className="mt-4 text-h2">{displayName}</h1>
         <p className="mt-1 text-small font-medium text-emerald-deep">{headline}</p>
         {verification ? (
@@ -72,10 +74,22 @@ export function MentorProfileView({ displayName, expertise, verification }: Ment
             </Link>
           </p>
         )}
-        <Link href="/onboarding/mentor" className={`${buttonStyles.secondary} mt-6 w-full`}>
-          <PencilIcon />
-          Edit profile
-        </Link>
+        {bio ? (
+          <p className="mt-4 text-small text-ink">{bio}</p>
+        ) : (
+          <Link href="/profile/about" className={`${linkClass} mt-4`}>
+            Add a short bio
+          </Link>
+        )}
+        <div className="mt-6 flex w-full flex-col gap-2">
+          <Link href="/onboarding/mentor" className={buttonStyles.secondary}>
+            <PencilIcon />
+            Edit profile
+          </Link>
+          <Link href="/profile/about" className={buttonStyles.ghost}>
+            Edit bio
+          </Link>
+        </div>
       </section>
 
       <div className="flex flex-col gap-6">
@@ -84,10 +98,11 @@ export function MentorProfileView({ displayName, expertise, verification }: Ment
             <h2 id="expertise-heading" className="text-h3">
               Expertise
             </h2>
-            <Link href="/onboarding/mentor" className="rounded-md text-small font-medium text-emerald-deep hover:underline">
+            <Link href="/onboarding/mentor" className={linkClass}>
               Edit
             </Link>
           </div>
+          <ClaimStatus itemId="expertise" badges={badges} />
 
           <h3 className="mt-6 font-mono text-meta font-normal uppercase tracking-wider text-muted">
             Core disciplines

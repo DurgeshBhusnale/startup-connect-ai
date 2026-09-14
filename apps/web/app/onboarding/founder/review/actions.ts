@@ -58,5 +58,5 @@ export async function saveFounderProfile(
     };
   }
 
-  redirect("/home");
+  redirect(textField(formData, "mode") === "edit" ? "/profile" : "/home");
 }

@@ -85,6 +85,21 @@ export function draftToFormValues(
   };
 }
 
+export function l1ToFormValues(l1: FounderL1Data): FounderFormValues {
+  return {
+    startup_name: l1.startup_name,
+    sector: l1.sector,
+    stage: l1.stage,
+    city: l1.city,
+    business_model: l1.business_model,
+    ask_amount: formatRupees(l1.ask_amount_inr),
+    team_size: String(l1.team_size),
+    description: l1.description,
+    competitors: l1.competitors,
+    linkedin_url: l1.linkedin_url ?? "",
+  };
+}
+
 export function countFilledFields(draft: FounderProfileDraft): number {
   return Object.values(draft).filter((value) =>
     Array.isArray(value) ? value.length > 0 : value !== null && value !== "",
