@@ -9,6 +9,7 @@ import {
   MatchExplanationSkeleton,
 } from "@/components/matches/match-explanation-panel";
 import { MatchOverview } from "@/components/matches/match-overview";
+import { MessageThread } from "@/components/messages/message-thread";
 import { PostTimeline } from "@/components/posts/post-timeline";
 import { AskPinBanner } from "@/components/profile/ask-pin-banner";
 import { ProfileAvatar } from "@/components/profile/profile-avatar";
@@ -19,6 +20,7 @@ import { RetryButton } from "@/components/ui/retry-button";
 import { getMatchDetail } from "@/lib/matches-api";
 import { getMe } from "@/lib/me";
 import { meetingShortDay, meetingTimeRange } from "@/lib/meetings";
+import { getConversation } from "@/lib/messages-api";
 import { getProfilePosts } from "@/lib/posts-api";
 import { cardStyles } from "@/lib/ui";
 
@@ -83,15 +85,26 @@ export default async function MatchDetailPage({ params, searchParams }: MatchDet
   const profile = detail.to_profile;
   // Founders' posts (M4) appear on an Updates tab, visible only through this match.
   const hasUpdates = detail.details.kind === "founder";
+  // S6 AC1: mutual matches get a Messages tab with their conversation.
+  const canMessage = detail.state.connection === "accepted";
   const tabs: readonly ProfileTab[] = [
     { key: "overview", label: "Overview" },
     ...(hasUpdates ? [{ key: "activity", label: "Updates" }] : []),
+    ...(canMessage ? [{ key: "messages", label: "Messages" }] : []),
     { key: "explain", label: "Explain this match" },
   ];
   const activeTab =
-    tab === "explain" ? "explain" : tab === "activity" && hasUpdates ? "activity" : "overview";
-  const posts =
-    activeTab === "activity" ? await getProfilePosts(profile.profile_id, cursor) : null;
+    tab === "explain"
+      ? "explain"
+      : tab === "activity" && hasUpdates
+        ? "activity"
+        : tab === "messages" && canMessage
+          ? "messages"
+          : "overview";
+  const [posts, conversation] = await Promise.all([
+    activeTab === "activity" ? getProfilePosts(profile.profile_id, cursor) : Promise.resolve(null),
+    activeTab === "messages" ? getConversation(detail.match_id) : Promise.resolve(null),
+  ]);
   const firstName = profile.display_name.split(/\s+/)[0] || profile.display_name;
 
   return (
@@ -185,6 +198,30 @@ export default async function MatchDetailPage({ params, searchParams }: MatchDet
             ) : (
               <section className={`${cardStyles} p-6`}>
                 <p className="text-small text-ink">Couldn’t load updates right now. Refresh to try again.</p>
+              </section>
+            )
+          ) : activeTab === "messages" ? (
+            conversation?.status === "ok" ? (
+              <div className="flex flex-col gap-2">
+                <div className={`${cardStyles} flex h-[36rem] flex-col overflow-hidden`}>
+                  <MessageThread
+                    thread={conversation.thread}
+                    initialMessages={conversation.messages}
+                    hasMore={conversation.hasMore}
+                    variant="embedded"
+                  />
+                </div>
+                <Link
+                  href={`/messages/${detail.match_id}`}
+                  className="self-end rounded-md text-small font-medium text-emerald-deep hover:underline"
+                >
+                  Open in Messages
+                </Link>
+              </div>
+            ) : (
+              <section className={`${cardStyles} flex flex-col items-start gap-4 p-6`}>
+                <p className="text-small text-ink">Couldn’t load this conversation right now.</p>
+                <RetryButton />
               </section>
             )
           ) : (

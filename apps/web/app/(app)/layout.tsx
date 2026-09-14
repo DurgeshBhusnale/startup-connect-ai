@@ -35,6 +35,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       badges={{
         unreadNotifications: summary.unread_count,
         pendingIntros: summary.pending_intros,
+        unreadMessages: summary.unread_messages ?? 0,
       }}
     >
       {children}

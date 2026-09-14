@@ -22,6 +22,7 @@ from app.models.db import (
     Meeting,
     MeetingOutcome,
     MentorExpertise,
+    Message,
     Notification,
     Post,
     PostMedia,
@@ -305,6 +306,10 @@ async def build_data_export(
                     Meeting.partner_profile_id.in_(profile_ids),
                 )
             ),
+        ),
+        # Messages the user wrote; received messages are the other person's words.
+        "messages_sent": await _dump(
+            session, select(Message).where(Message.sender_profile_id.in_(profile_ids))
         ),
         # Only the user's own outcomes and notes; the other party's stay private.
         "meeting_outcomes": await _dump(

@@ -38,6 +38,11 @@ const topicCopy: Record<
     body: "When a meeting is booked, before it starts, or when a match wants to schedule.",
     roles: ["founder", "investor", "mentor"],
   },
+  messages: {
+    title: "Messages",
+    body: "When a mutual match sends you a message. One alert per conversation until you read it.",
+    roles: ["founder", "investor", "mentor"],
+  },
 };
 
 type NotificationPreferencesFormProps = {

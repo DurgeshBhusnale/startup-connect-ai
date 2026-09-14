@@ -327,6 +327,47 @@ export type AskPinResponse = {
   ask_pin: string | null;
 };
 
+export type MessageItem = {
+  id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+  sender_is_me: boolean;
+  read_at: string | null;
+  client_ref: string | null;
+};
+
+export type MessageCreatedResponse = {
+  message_id: string;
+  message: MessageItem;
+};
+
+export type ThreadItem = {
+  match_id: string;
+  partner: MatchProfileCard;
+  fit_score: number;
+  can_send: boolean;
+  unread_count: number;
+  last_message: { body: string; created_at: string; sender_is_me: boolean } | null;
+  last_activity_at: string;
+};
+
+export type ThreadsResponse = {
+  items: ThreadItem[];
+  unread_total: number;
+};
+
+export type MessagesReadResponse = {
+  marked: number;
+  unread_total: number;
+};
+
+export type RealtimeEvent =
+  | { type: "ready" }
+  | { type: "pong" }
+  | { type: "message.created"; match_id: string; message: MessageItem; unread_total?: number }
+  | { type: "message.read"; match_id: string; read_at: string };
+
 export type MatchItem = {
   match_id: string;
   to_profile: MatchProfileCard;
@@ -376,6 +417,7 @@ export type NotificationPreferences = {
   mutual_matches: boolean;
   interest: boolean;
   meetings: boolean;
+  messages: boolean;
 };
 
 export type DataExportResponse = {
@@ -448,7 +490,8 @@ export type NotificationKind =
   | "meeting_reminder"
   | "meeting_invite"
   | "scheduling_link_request"
-  | "meeting_outcome_prompt";
+  | "meeting_outcome_prompt"
+  | "message_received";
 
 export type NotificationItem = {
   id: string;
@@ -469,6 +512,7 @@ export type NotificationsResponse = {
 export type NotificationSummary = {
   unread_count: number;
   pending_intros: number;
+  unread_messages: number;
 };
 
 export type PostKind = "text" | "image" | "milestone";

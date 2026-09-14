@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Logo } from "@/components/brand/logo";
 import { BellIcon, SearchIcon } from "@/components/icons";
+import { RealtimeProvider } from "@/components/messages/realtime-provider";
 import { initialsOf } from "@/lib/feedback";
 
 import { BottomTabs, Breadcrumb, MobileNav, SidebarNav } from "./app-nav";
@@ -23,6 +24,7 @@ type AppShellProps = {
 export function AppShell({ displayName, roleLabel, role, badges, children }: AppShellProps) {
   const unread = badges.unreadNotifications;
   return (
+    <RealtimeProvider>
     <div className="min-h-screen bg-slate-50 lg:flex">
       <aside className="hidden w-sidebar shrink-0 flex-col bg-ink lg:sticky lg:top-0 lg:flex lg:h-screen">
         <div className="px-6 py-6">
@@ -98,5 +100,6 @@ export function AppShell({ displayName, roleLabel, role, badges, children }: App
 
       <BottomTabs role={role} badges={badges} />
     </div>
+    </RealtimeProvider>
   );
 }

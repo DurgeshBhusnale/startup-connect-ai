@@ -5,7 +5,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import ProblemError
-from app.models.db import IntroRequest, Notification, Profile, User
+from app.models.db import IntroRequest, Message, Notification, Profile, User
 from app.models.notifications import (
     NotificationItem,
     NotificationKind,
@@ -30,6 +30,7 @@ KIND_TOPICS: dict[NotificationKind, str] = {
     NotificationKind.MEETING_INVITE: "meetings",
     NotificationKind.SCHEDULING_LINK_REQUEST: "meetings",
     NotificationKind.MEETING_OUTCOME_PROMPT: "meetings",
+    NotificationKind.MESSAGE_RECEIVED: "messages",
 }
 
 
@@ -162,6 +163,14 @@ async def notification_summary(session: AsyncSession, clerk_user_id: str) -> Not
         .join(Profile, IntroRequest.partner_profile_id == Profile.id)
         .where(Profile.user_id == user_id, IntroRequest.status == "pending")
     )
+    unread_messages: int | None = await session.scalar(
+        select(func.count())
+        .select_from(Message)
+        .join(Profile, Message.recipient_profile_id == Profile.id)
+        .where(Profile.user_id == user_id, Message.read_at.is_(None))
+    )
     return NotificationSummary(
-        unread_count=await _unread_count(session, user_id), pending_intros=pending or 0
+        unread_count=await _unread_count(session, user_id),
+        pending_intros=pending or 0,
+        unread_messages=unread_messages or 0,
     )

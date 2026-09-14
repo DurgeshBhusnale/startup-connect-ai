@@ -23,7 +23,11 @@ import {
 import type { IconComponent } from "@/components/icons";
 import type { AppRole } from "@/lib/api-types";
 
-export type NavBadges = { unreadNotifications: number; pendingIntros: number };
+export type NavBadges = {
+  unreadNotifications: number;
+  pendingIntros: number;
+  unreadMessages: number;
+};
 
 type NavItem = {
   href: string;
@@ -40,7 +44,7 @@ function sidebarItemsFor(role: AppRole): readonly NavItem[] {
     ...(role === "founder"
       ? []
       : [{ href: "/intros", label: "Intro queue", icon: InboxIcon, badge: "pendingIntros" as const }]),
-    { href: "/messages", label: "Messages", icon: MessageSquareIcon },
+    { href: "/messages", label: "Messages", icon: MessageSquareIcon, badge: "unreadMessages" },
     { href: "/search", label: "Search", icon: SearchIcon },
     { href: "/notifications", label: "Notifications", icon: BellIcon, badge: "unreadNotifications" },
     { href: "/settings", label: "Settings", icon: SettingsIcon },
@@ -52,7 +56,7 @@ function tabItemsFor(role: AppRole): readonly NavItem[] {
     { href: "/home", label: "Home", icon: HomeIcon },
     { href: "/matches", label: "Matches", icon: SparklesIcon },
     role === "founder"
-      ? { href: "/messages", label: "Messages", icon: MessageSquareIcon }
+      ? { href: "/messages", label: "Messages", icon: MessageSquareIcon, badge: "unreadMessages" }
       : { href: "/intros", label: "Queue", icon: InboxIcon, badge: "pendingIntros" },
     { href: "/profile", label: "Profile", icon: CircleUserIcon },
   ];

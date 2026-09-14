@@ -22,7 +22,7 @@ export async function getNotifications(): Promise<NotificationsResult> {
   }
 }
 
-const emptySummary: NotificationSummary = { unread_count: 0, pending_intros: 0 };
+const emptySummary: NotificationSummary = { unread_count: 0, pending_intros: 0, unread_messages: 0 };
 
 // Shell badges are best-effort: a failed lookup hides the badges instead of breaking every page.
 export async function getNotificationSummary(): Promise<NotificationSummary> {

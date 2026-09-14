@@ -23,6 +23,7 @@ from app.routers import (
     me,
     meetings,
     mentor,
+    messages,
     notifications,
     posts,
     privacy,
@@ -136,3 +137,4 @@ app.include_router(notifications.router)
 app.include_router(privacy.router)
 app.include_router(posts.router)
 app.include_router(meetings.router)
+app.include_router(messages.router)

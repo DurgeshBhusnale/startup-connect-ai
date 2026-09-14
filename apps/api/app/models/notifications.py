@@ -18,6 +18,7 @@ class NotificationKind(StrEnum):
     MEETING_INVITE = "meeting_invite"
     SCHEDULING_LINK_REQUEST = "scheduling_link_request"
     MEETING_OUTCOME_PROMPT = "meeting_outcome_prompt"
+    MESSAGE_RECEIVED = "message_received"
 
 
 class NotificationItem(BaseModel):
@@ -39,6 +40,7 @@ class NotificationsResponse(BaseModel):
 class NotificationSummary(BaseModel):
     unread_count: int
     pending_intros: int
+    unread_messages: int = 0
 
 
 class ReadResponse(BaseModel):

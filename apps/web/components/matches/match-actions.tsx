@@ -10,6 +10,7 @@ import {
   BookmarkIcon,
   CalendarIcon,
   CheckIcon,
+  MessageSquareIcon,
   XIcon,
 } from "@/components/icons";
 import { firstNameOf, rejectReasons } from "@/lib/feedback";
@@ -157,7 +158,11 @@ export function MatchActions({
           <CheckIcon className="h-4 w-4" />
           Mutual match
         </StatusPill>
-        <Link href={`/matches/${matchId}/schedule`} className={buttonStyles.primary}>
+        <Link href={`/messages/${matchId}`} className={buttonStyles.primary}>
+          <MessageSquareIcon className="h-4 w-4" />
+          Message
+        </Link>
+        <Link href={`/matches/${matchId}/schedule`} className={buttonStyles.secondary}>
           <CalendarIcon className="h-4 w-4" />
           Schedule a meeting
         </Link>
