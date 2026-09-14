@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { EndorsementsGiven } from "@/components/endorsements/endorsements-given";
 import { BanknoteIcon, GlobeIcon, PencilIcon, SparklesIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatRupees } from "@/lib/currency";
@@ -11,7 +12,12 @@ import { ProfileAvatar } from "./profile-avatar";
 import { ProfileTabs } from "./profile-tabs";
 
 import type { ProfileTab } from "./profile-tabs";
-import type { BadgesResponse, InvestorProfileState, ThesisData } from "@/lib/api-types";
+import type {
+  BadgesResponse,
+  GivenEndorsement,
+  InvestorProfileState,
+  ThesisData,
+} from "@/lib/api-types";
 
 const linkClass = "rounded-md text-small font-medium text-emerald-deep hover:underline";
 const labelClass = "font-mono text-meta font-normal uppercase tracking-wider text-muted";
@@ -29,6 +35,7 @@ type InvestorProfileViewProps = {
   state: InvestorProfileState;
   thesis: ThesisData;
   badges: BadgesResponse;
+  given: GivenEndorsement[] | null;
   tab: string;
 };
 
@@ -37,6 +44,7 @@ export function InvestorProfileView({
   state,
   thesis,
   badges,
+  given,
   tab,
 }: InvestorProfileViewProps) {
   const tabs: readonly ProfileTab[] = [
@@ -100,6 +108,7 @@ export function InvestorProfileView({
         <ProfileTabs tabs={tabs} active={activeTab} />
 
         {activeTab === "overview" ? (
+          <>
           <section aria-labelledby="thesis-heading" className={`${cardStyles} p-6`}>
             <div className="flex items-center justify-between gap-3">
               <h2 id="thesis-heading" className="text-h3">
@@ -161,6 +170,8 @@ export function InvestorProfileView({
               </div>
             ) : null}
           </section>
+          <EndorsementsGiven items={given} />
+          </>
         ) : activeTab === "investments" ? (
           state.prior_investments.length > 0 ? (
             <section aria-labelledby="deals-heading" className={`${cardStyles} p-6`}>

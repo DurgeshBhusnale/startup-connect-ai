@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { ClaimEndorsement } from "@/components/endorsements/claim-endorsement";
 import { ArrowRightIcon, MessageSquareIcon, PlusIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/empty-state";
+import { milestoneItemId } from "@/lib/endorsements";
 import { buttonStyles, cardStyles } from "@/lib/ui";
 
 import { ComposePostDialog } from "./compose-post-dialog";
@@ -13,6 +15,7 @@ import { DeletePostDialog } from "./delete-post-dialog";
 import { PostCard } from "./post-card";
 
 import type { PostItem } from "@/lib/api-types";
+import type { EndorseContext } from "@/lib/endorsements";
 
 type PostTimelineProps = {
   posts: PostItem[];
@@ -26,6 +29,8 @@ type PostTimelineProps = {
   autoCompose?: boolean;
   emptyTitle: string;
   emptyBody: string;
+  /** Endorsements on milestone posts (S8): badges for everyone, the endorse control for endorsers. */
+  endorse?: EndorseContext;
 };
 
 type Composer = { existing?: PostItem } | null;
@@ -39,6 +44,7 @@ export function PostTimeline({
   autoCompose = false,
   emptyTitle,
   emptyBody,
+  endorse,
 }: PostTimelineProps) {
   const router = useRouter();
   const [composer, setComposer] = useState<Composer>(autoCompose && editable ? {} : null);
@@ -95,6 +101,18 @@ export function PostTimeline({
             <li key={post.post_id}>
               <PostCard
                 post={post}
+                claimFooter={
+                  endorse && post.milestone_data ? (
+                    <ClaimEndorsement
+                      endorse={endorse}
+                      itemId={milestoneItemId(post.post_id)}
+                      itemKind="milestone"
+                      label="Milestone"
+                      value={post.milestone_data.value}
+                      showBadge
+                    />
+                  ) : undefined
+                }
                 actions={
                   editable ? (
                     <div className="flex items-center gap-1">

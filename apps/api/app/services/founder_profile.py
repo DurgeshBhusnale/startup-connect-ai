@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import ProblemError
 from app.models.db import AppRole
+from app.models.endorsements import ENDORSABLE_FIELDS, field_item_id
 from app.models.founder import (
     AutobuildResponse,
     FounderDraftState,
@@ -15,6 +16,7 @@ from app.models.founder import (
     SaveProfileResponse,
 )
 from app.services.deck_reader import read_deck
+from app.services.endorsement_cleanup import strip_endorsements
 from app.services.founder_extraction import extract_founder_profile
 from app.services.profile_lookup import get_role_profile, l1_text
 
@@ -125,6 +127,20 @@ async def save_founder_profile(
     if draft is not None:
         l1_data["extraction_confidence"] = draft.confidence_map
         l1_data["deck_filename"] = draft.deck_filename
+
+    # S8 edge case: an edited claim loses its endorsements, and the endorsers are told.
+    if profile.l1_completed_at is not None:
+        changed = [
+            field_item_id(key)
+            for key in ENDORSABLE_FIELDS
+            if previous.get(key) != new_values.get(key)
+        ]
+        await strip_endorsements(
+            session,
+            profile.id,
+            changed,
+            founder_name=str(new_values.get("startup_name") or "A founder"),
+        )
 
     profile.l1_data = l1_data
     profile.l1_completed_at = profile.l1_completed_at or datetime.now(UTC)

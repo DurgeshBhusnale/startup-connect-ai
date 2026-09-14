@@ -198,7 +198,12 @@ export type AboutResponse = {
 
 export type BadgesResponse = {
   verified_items: string[];
-  endorsed_items: { item_id: string; endorser_id: string; endorser_name: string }[];
+  endorsed_items: {
+    item_id: string;
+    endorser_id: string | null;
+    endorser_name: string;
+    endorser_active: boolean;
+  }[];
   self_reported_stale: string[];
   last_updated: Record<string, string>;
 };
@@ -379,6 +384,40 @@ export type RealtimeEvent =
   | { type: "message.created"; match_id: string; message: MessageItem; unread_total?: number }
   | { type: "message.read"; match_id: string; read_at: string };
 
+export type EndorsementItemKind = "profile_field" | "milestone";
+
+export type EndorsementItem = {
+  endorsement_id: string;
+  item_id: string;
+  item_kind: EndorsementItemKind;
+  endorser_name: string;
+  endorser_role: "investor" | "mentor" | null;
+  endorser_active: boolean;
+  is_mine: boolean;
+  created_at: string;
+};
+
+export type ProfileEndorsements = {
+  can_endorse: boolean;
+  endorser_count: number;
+  items: EndorsementItem[];
+};
+
+export type EndorsementCreatedResponse = {
+  endorsement_id: string;
+};
+
+export type GivenEndorsement = {
+  endorsement_id: string;
+  founder_profile_id: string;
+  founder_name: string;
+  match_id: string | null;
+  item_id: string;
+  item_label: string;
+  claim: string | null;
+  created_at: string;
+};
+
 export type MatchItem = {
   match_id: string;
   to_profile: MatchProfileCard;
@@ -429,6 +468,7 @@ export type NotificationPreferences = {
   interest: boolean;
   meetings: boolean;
   messages: boolean;
+  endorsements: boolean;
 };
 
 export type DataExportResponse = {
@@ -502,7 +542,9 @@ export type NotificationKind =
   | "meeting_invite"
   | "scheduling_link_request"
   | "meeting_outcome_prompt"
-  | "message_received";
+  | "message_received"
+  | "endorsement_received"
+  | "endorsement_removed";
 
 export type NotificationItem = {
   id: string;

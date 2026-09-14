@@ -15,6 +15,7 @@ from app.models.db import (
     ConsentLog,
     ConsentScope,
     DataExportRequest,
+    Endorsement,
     FeedbackEvent,
     IntroRequest,
     InvestorThesis,
@@ -304,6 +305,15 @@ async def build_data_export(
                 or_(
                     Meeting.founder_profile_id.in_(profile_ids),
                     Meeting.partner_profile_id.in_(profile_ids),
+                )
+            ),
+        ),
+        "endorsements": await _dump(
+            session,
+            select(Endorsement).where(
+                or_(
+                    Endorsement.endorser_profile_id.in_(profile_ids),
+                    Endorsement.target_profile_id.in_(profile_ids),
                 )
             ),
         ),

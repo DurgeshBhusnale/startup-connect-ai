@@ -1,3 +1,4 @@
+import { ClaimEndorsement } from "@/components/endorsements/claim-endorsement";
 import { BanknoteIcon, ClockIcon, GlobeIcon } from "@/components/icons";
 import { ClaimStatus } from "@/components/profile/claim-status";
 import { formatRupees } from "@/lib/currency";
@@ -6,6 +7,7 @@ import { founderStages, geographies, investmentStages } from "@/lib/taxonomy";
 import { cardStyles } from "@/lib/ui";
 
 import type { BadgesResponse, MatchDetails } from "@/lib/api-types";
+import type { EndorseContext } from "@/lib/endorsements";
 
 const labelClass = "font-mono text-meta font-normal uppercase tracking-wider text-muted";
 const chipClass = "rounded bg-slate-100 px-3 py-1 text-small text-ink";
@@ -29,9 +31,11 @@ function SelfReportedNote({ subject }: { subject: string }) {
 function FounderOverview({
   details,
   badges,
+  endorse,
 }: {
   details: Extract<MatchDetails, { kind: "founder" }>;
   badges: BadgesResponse;
+  endorse?: EndorseContext;
 }) {
   const { l1 } = details;
   const stage = founderStages.find((option) => option.value === l1.stage)?.label ?? l1.stage;
@@ -56,6 +60,16 @@ function FounderOverview({
         </h2>
         <p className="mt-2 text-base text-ink">{l1.description}</p>
         <ClaimStatus itemId="l1.description" badges={badges} />
+        {endorse ? (
+          <ClaimEndorsement
+            endorse={endorse}
+            itemId="l1.description"
+            itemKind="profile_field"
+            label="Startup description"
+            value={l1.description}
+            className="mt-2"
+          />
+        ) : null}
         {details.website ? (
           <a
             href={details.website}
@@ -93,6 +107,16 @@ function FounderOverview({
               <dd className="mt-2 text-base font-semibold text-ink">
                 {fact.value}
                 <ClaimStatus itemId={fact.id} badges={badges} />
+                {endorse ? (
+                  <ClaimEndorsement
+                    endorse={endorse}
+                    itemId={fact.id}
+                    itemKind="profile_field"
+                    label={fact.label}
+                    value={String(fact.value)}
+                    className="mt-2 font-normal"
+                  />
+                ) : null}
               </dd>
             </div>
           ))}
@@ -284,12 +308,15 @@ function MentorOverview({
 export function MatchOverview({
   details,
   badges,
+  endorse,
 }: {
   details: MatchDetails;
   badges: BadgesResponse;
+  /** Founder profiles only: endorsement data for the S8 endorse controls. */
+  endorse?: EndorseContext;
 }) {
   if (details.kind === "founder") {
-    return <FounderOverview details={details} badges={badges} />;
+    return <FounderOverview details={details} badges={badges} endorse={endorse} />;
   }
   if (details.kind === "investor") {
     return <InvestorOverview details={details} badges={badges} />;

@@ -22,6 +22,7 @@ import { getMatchDetail } from "@/lib/matches-api";
 import { getMe } from "@/lib/me";
 import { meetingShortDay, meetingTimeRange } from "@/lib/meetings";
 import { getConversation } from "@/lib/messages-api";
+import { getProfileEndorsements } from "@/lib/endorsements-api";
 import { getProfilePosts } from "@/lib/posts-api";
 import { cardStyles } from "@/lib/ui";
 
@@ -102,11 +103,17 @@ export default async function MatchDetailPage({ params, searchParams }: MatchDet
         : tab === "messages" && canMessage
           ? "messages"
           : "overview";
-  const [posts, conversation] = await Promise.all([
+  const [posts, conversation, endorsements] = await Promise.all([
     activeTab === "activity" ? getProfilePosts(profile.profile_id, cursor) : Promise.resolve(null),
     activeTab === "messages" ? getConversation(detail.match_id) : Promise.resolve(null),
+    hasUpdates && (activeTab === "overview" || activeTab === "activity")
+      ? getProfileEndorsements(profile.profile_id)
+      : Promise.resolve(null),
   ]);
   const firstName = profile.display_name.split(/\s+/)[0] || profile.display_name;
+  const endorse = endorsements
+    ? { profileId: profile.profile_id, firstName, data: endorsements }
+    : undefined;
 
   return (
     <div className="mx-auto flex max-w-content flex-col gap-6">
@@ -185,7 +192,11 @@ export default async function MatchDetailPage({ params, searchParams }: MatchDet
             label="Match sections"
           />
           {activeTab === "overview" ? (
-            <MatchOverview details={detail.details} badges={detail.badges} />
+            <MatchOverview
+              details={detail.details}
+              badges={detail.badges}
+              endorse={endorse}
+            />
           ) : activeTab === "activity" ? (
             posts ? (
               <PostTimeline
@@ -194,6 +205,7 @@ export default async function MatchDetailPage({ params, searchParams }: MatchDet
                 editable={false}
                 basePath={`/matches/${detail.match_id}?tab=activity`}
                 isFirstPage={!cursor}
+                endorse={endorse}
                 emptyTitle="No updates yet"
                 emptyBody={`${firstName} hasn’t shared any updates yet.`}
               />

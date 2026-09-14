@@ -31,6 +31,8 @@ KIND_TOPICS: dict[NotificationKind, str] = {
     NotificationKind.SCHEDULING_LINK_REQUEST: "meetings",
     NotificationKind.MEETING_OUTCOME_PROMPT: "meetings",
     NotificationKind.MESSAGE_RECEIVED: "messages",
+    NotificationKind.ENDORSEMENT_RECEIVED: "endorsements",
+    NotificationKind.ENDORSEMENT_REMOVED: "endorsements",
 }
 
 

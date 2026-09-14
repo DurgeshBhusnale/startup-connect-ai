@@ -1,6 +1,12 @@
 import Link from "next/link";
 
-import { MapPinIcon, PencilIcon, PlusIcon, SparklesIcon } from "@/components/icons";
+import {
+  MapPinIcon,
+  PencilIcon,
+  PlusIcon,
+  ShieldCheckIcon,
+  SparklesIcon,
+} from "@/components/icons";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatRupees } from "@/lib/currency";
 import { founderStages } from "@/lib/taxonomy";
@@ -30,6 +36,8 @@ type FounderProfileViewProps = {
   bio: string | null;
   website: string | null;
   askPin: string | null;
+  /** S8 AC4: distinct people who endorsed a claim on this profile. */
+  endorserCount: number;
   badges: BadgesResponse;
   tab: string;
   /** Rendered on the Posts tab (M4 timeline). */
@@ -42,6 +50,7 @@ export function FounderProfileView({
   bio,
   website,
   askPin,
+  endorserCount,
   badges,
   tab,
   postsPanel,
@@ -64,6 +73,26 @@ export function FounderProfileView({
   return (
     <div className="mx-auto flex max-w-content flex-col gap-6">
     <AskPinBanner text={askPin} editHref="/profile/edit#ask-pin" />
+    {endorserCount > 0 ? (
+      <section
+        aria-label="Endorsements"
+        className={`${cardStyles} flex items-center gap-3 p-4`}
+      >
+        <span
+          aria-hidden="true"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-emerald/10 text-emerald-deep"
+        >
+          <ShieldCheckIcon className="h-4 w-4" />
+        </span>
+        <p className="text-small text-ink">
+          You’ve been endorsed by{" "}
+          <strong className="font-semibold">
+            {endorserCount} {endorserCount === 1 ? "person" : "people"}
+          </strong>
+          . Endorsed claims are highlighted below.
+        </p>
+      </section>
+    ) : null}
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-start">
       <aside className="flex flex-col gap-6">
         <section className={`${cardStyles} flex flex-col items-center p-6 text-center`}>
@@ -138,7 +167,14 @@ export function FounderProfileView({
               </p>
               <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {facts.map((fact) => (
-                  <div key={fact.id} className={`${cardStyles} p-4`}>
+                  <div
+                    key={fact.id}
+                    className={`${cardStyles} p-4 ${
+                      badges.endorsed_items.some((item) => item.item_id === fact.id)
+                        ? "ring-2 ring-emerald/30"
+                        : ""
+                    }`}
+                  >
                     <dt className={factLabelClass}>{fact.label}</dt>
                     <dd className="mt-2 text-base font-semibold text-ink">
                       {fact.value}

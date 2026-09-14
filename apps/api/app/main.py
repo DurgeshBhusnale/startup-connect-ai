@@ -16,6 +16,7 @@ from app.errors import ProblemError, UpstreamServiceError, problem_response
 from app.middleware.auth import ClerkAuthMiddleware
 from app.models.common import ProblemDetail
 from app.routers import (
+    endorsements,
     health,
     intros,
     investor,
@@ -138,3 +139,4 @@ app.include_router(privacy.router)
 app.include_router(posts.router)
 app.include_router(meetings.router)
 app.include_router(messages.router)
+app.include_router(endorsements.router)

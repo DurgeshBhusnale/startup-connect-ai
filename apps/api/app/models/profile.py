@@ -43,8 +43,10 @@ class AboutResponse(BaseModel):
 
 class EndorsedItem(BaseModel):
     item_id: str
-    endorser_id: UUID
+    # None once the endorser's account is purged (shown as "Endorser account inactive").
+    endorser_id: UUID | None
     endorser_name: str
+    endorser_active: bool = True
 
 
 class BadgesResponse(BaseModel):

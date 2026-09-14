@@ -52,6 +52,8 @@ const kindStyles: Record<NotificationKind, { icon: IconComponent; tone: string }
   scheduling_link_request: { icon: CalendarIcon, tone: "bg-alert-amber/10 text-alert-amber" },
   meeting_outcome_prompt: { icon: MessageSquareIcon, tone: "bg-slate-100 text-ink" },
   message_received: { icon: MessageSquareIcon, tone: "bg-emerald/10 text-emerald-deep" },
+  endorsement_received: { icon: ShieldCheckIcon, tone: "bg-emerald-bright/15 text-emerald-deep" },
+  endorsement_removed: { icon: ShieldCheckIcon, tone: "bg-slate-100 text-muted" },
 };
 
 // Calendar days in IST, so "Today" matches what users in India see on the clock.

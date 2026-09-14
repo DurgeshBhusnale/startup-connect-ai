@@ -39,6 +39,7 @@ class NotificationPreferences(BaseModel):
     interest: bool = True
     meetings: bool = True
     messages: bool = True
+    endorsements: bool = True
 
 
 class DataExportResponse(BaseModel):

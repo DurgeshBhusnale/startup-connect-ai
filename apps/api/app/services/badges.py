@@ -8,6 +8,7 @@ from sqlalchemy.orm import aliased
 from app.errors import ProblemError
 from app.models.db import (
     AppRole,
+    Endorsement,
     InvestorThesis,
     Match,
     MentorExpertise,
@@ -16,7 +17,8 @@ from app.models.db import (
     User,
 )
 from app.models.founder import FounderL1Data
-from app.models.profile import BadgesResponse
+from app.models.profile import BadgesResponse, EndorsedItem
+from app.services.endorsement_cleanup import INACTIVE_ENDORSER
 
 STALE_AFTER = timedelta(days=60)
 
@@ -67,14 +69,43 @@ async def _claim_timestamps(session: AsyncSession, profile: Profile) -> dict[str
     return result
 
 
+async def endorsed_items(session: AsyncSession, profile_id: UUID) -> list[EndorsedItem]:
+    endorser, endorser_user = aliased(Profile), aliased(User)
+    rows = await session.execute(
+        select(
+            Endorsement.target_item_id,
+            Endorsement.endorser_profile_id,
+            Endorsement.endorser_name,
+            endorser_user.deleted_at,
+        )
+        .outerjoin(endorser, Endorsement.endorser_profile_id == endorser.id)
+        .outerjoin(endorser_user, endorser.user_id == endorser_user.id)
+        .where(Endorsement.target_profile_id == profile_id)
+        .order_by(Endorsement.created_at)
+    )
+    items: list[EndorsedItem] = []
+    for item_id, endorser_id, name, deleted_at in rows.tuples():
+        # S8 edge case: a deactivated endorser's endorsement stays, marked inactive.
+        active = endorser_id is not None and deleted_at is None
+        items.append(
+            EndorsedItem(
+                item_id=item_id,
+                endorser_id=endorser_id,
+                endorser_name=(name or "Investor") if active else INACTIVE_ENDORSER,
+                endorser_active=active,
+            )
+        )
+    return items
+
+
 async def badges_for_profile(session: AsyncSession, profile: Profile) -> BadgesResponse:
     timestamps = await _claim_timestamps(session, profile)
     cutoff = datetime.now(UTC) - STALE_AFTER
     stale = sorted(item for item, updated in timestamps.items() if updated < cutoff)
-    # verified_items fill in with the M5 momentum aggregator; endorsed_items with S8 endorsements.
+    # verified_items fill in with the M5 momentum aggregator.
     return BadgesResponse(
         verified_items=[],
-        endorsed_items=[],
+        endorsed_items=await endorsed_items(session, profile.id),
         self_reported_stale=stale,
         last_updated={item: timestamps[item] for item in stale},
     )

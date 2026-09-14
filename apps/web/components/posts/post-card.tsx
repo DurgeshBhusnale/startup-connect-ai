@@ -58,7 +58,14 @@ function PostImages({ media }: { media: PostMediaItem[] }) {
   );
 }
 
-export function PostCard({ post, actions }: { post: PostItem; actions?: ReactNode }) {
+type PostCardProps = {
+  post: PostItem;
+  actions?: ReactNode;
+  /** Shown under a milestone: endorsement badges and the endorse control (S8). */
+  claimFooter?: ReactNode;
+};
+
+export function PostCard({ post, actions, claimFooter }: PostCardProps) {
   const posted = dateFormat.format(new Date(post.created_at));
   return (
     <article
@@ -76,6 +83,7 @@ export function PostCard({ post, actions }: { post: PostItem; actions?: ReactNod
       {post.kind === "milestone" && post.milestone_data ? (
         <MilestoneCard milestone={post.milestone_data} />
       ) : null}
+      {post.kind === "milestone" ? claimFooter : null}
       {post.body ? (
         <p className="whitespace-pre-line break-words text-base text-ink">{post.body}</p>
       ) : null}

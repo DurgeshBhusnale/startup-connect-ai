@@ -19,6 +19,8 @@ class NotificationKind(StrEnum):
     SCHEDULING_LINK_REQUEST = "scheduling_link_request"
     MEETING_OUTCOME_PROMPT = "meeting_outcome_prompt"
     MESSAGE_RECEIVED = "message_received"
+    ENDORSEMENT_RECEIVED = "endorsement_received"
+    ENDORSEMENT_REMOVED = "endorsement_removed"
 
 
 class NotificationItem(BaseModel):

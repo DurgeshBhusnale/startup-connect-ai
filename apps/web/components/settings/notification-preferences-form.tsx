@@ -43,6 +43,11 @@ const topicCopy: Record<
     body: "When a mutual match sends you a message. One alert per conversation until you read it.",
     roles: ["founder", "investor", "mentor"],
   },
+  endorsements: {
+    title: "Endorsements",
+    body: "When someone endorses a claim on your profile, or a claim you endorsed is edited.",
+    roles: ["founder", "investor", "mentor"],
+  },
 };
 
 type NotificationPreferencesFormProps = {

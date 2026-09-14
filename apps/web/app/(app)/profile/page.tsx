@@ -7,6 +7,7 @@ import { InvestorProfileView } from "@/components/profile/investor-profile-view"
 import { MentorProfileView } from "@/components/profile/mentor-profile-view";
 import { RetryButton } from "@/components/ui/retry-button";
 import { getProfileBadges } from "@/lib/badges-api";
+import { getGivenEndorsements, getProfileEndorsements } from "@/lib/endorsements-api";
 import { getFounderProfileState } from "@/lib/founder-profile-api";
 import { getInvestorProfileState } from "@/lib/investor-profile-api";
 import { getMe } from "@/lib/me";
@@ -40,10 +41,18 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
       redirect("/onboarding/founder");
     }
     const showPosts = tab === "posts";
-    const [badges, posts] = await Promise.all([
+    const [badges, posts, endorsements] = await Promise.all([
       getProfileBadges(state.profile_id),
       showPosts ? getMyPosts(cursor) : Promise.resolve(null),
+      getProfileEndorsements(state.profile_id),
     ]);
+    const endorse = endorsements
+      ? {
+          profileId: state.profile_id,
+          firstName: displayName.split(/\s+/)[0] || displayName,
+          data: endorsements,
+        }
+      : undefined;
     return (
       <FounderProfileView
         displayName={displayName}
@@ -51,6 +60,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
         bio={state.bio}
         website={state.website}
         askPin={state.ask_pin}
+        endorserCount={endorsements?.endorser_count ?? 0}
         badges={badges}
         tab={tab ?? "overview"}
         postsPanel={
@@ -62,6 +72,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               basePath="/profile?tab=posts"
               isFirstPage={!cursor}
               autoCompose={compose === "1"}
+              endorse={endorse}
               emptyTitle="No posts yet"
               emptyBody="Share launches, customer wins, and milestones so matched investors and mentors see your momentum."
             />
@@ -84,13 +95,17 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
     if (!state.thesis) {
       redirect("/onboarding/investor");
     }
-    const badges = await getProfileBadges(state.profile_id);
+    const [badges, given] = await Promise.all([
+      getProfileBadges(state.profile_id),
+      getGivenEndorsements(),
+    ]);
     return (
       <InvestorProfileView
         displayName={displayName}
         state={state}
         thesis={state.thesis}
         badges={badges}
+        given={given}
         tab={tab ?? "overview"}
       />
     );
@@ -104,7 +119,10 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
     if (!state.expertise) {
       redirect("/onboarding/mentor");
     }
-    const badges = await getProfileBadges(state.profile_id);
+    const [badges, given] = await Promise.all([
+      getProfileBadges(state.profile_id),
+      getGivenEndorsements(),
+    ]);
     return (
       <MentorProfileView
         displayName={displayName}
@@ -112,6 +130,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
         verification={state.verification}
         bio={state.bio}
         badges={badges}
+        given={given}
       />
     );
   }

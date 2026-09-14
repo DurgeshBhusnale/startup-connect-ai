@@ -13,6 +13,7 @@ from sqlalchemy.orm import aliased
 
 from app.errors import ProblemError, UpstreamServiceError
 from app.models.db import AppRole, Match, Post, PostMedia, Profile, User
+from app.models.endorsements import milestone_item_id
 from app.models.posts import (
     MediaUploadResponse,
     MilestoneData,
@@ -26,6 +27,7 @@ from app.models.posts import (
     PostUpdateRequest,
 )
 from app.services import storage
+from app.services.endorsement_cleanup import strip_endorsements
 from app.services.media import InvalidImageError, process_image
 from app.services.moderation import ModerationVerdict, moderate_text
 from app.services.profile_lookup import get_role_profile
@@ -197,6 +199,14 @@ async def update_post(
     )
     post.moderation_status, post.moderation_note = status, note
     post.updated_at = datetime.now(UTC)
+    # S8 edge case: an edited milestone loses its endorsements, and the endorsers are told.
+    if candidate.milestone_data != stored_milestone:
+        await strip_endorsements(
+            session,
+            profile.id,
+            [milestone_item_id(post.id)],
+            founder_name=str(profile.l1_data.get("startup_name") or "A founder"),
+        )
     profile.embedding_v += 1
     await session.commit()
     if removed_paths:
@@ -215,6 +225,12 @@ async def delete_post(
     post = await _own_post(session, profile.id, post_id)
     # Soft delete (PRD M4 AC9): hidden now, erased by the purge_posts worker after 30 days.
     post.deleted_at = datetime.now(UTC)
+    await strip_endorsements(
+        session,
+        profile.id,
+        [milestone_item_id(post.id)],
+        founder_name=str(profile.l1_data.get("startup_name") or "A founder"),
+    )
     profile.embedding_v += 1
     await session.commit()
     logger.info("post_deleted post_id=%s", post_id)

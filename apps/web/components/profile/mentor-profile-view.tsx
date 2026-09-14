@@ -7,6 +7,7 @@ import {
   PencilIcon,
   ShieldCheckIcon,
 } from "@/components/icons";
+import { EndorsementsGiven } from "@/components/endorsements/endorsements-given";
 import { availabilityLabel, stageLabel } from "@/lib/mentor-profile";
 import { buttonStyles, cardStyles } from "@/lib/ui";
 
@@ -15,6 +16,7 @@ import { ProfileAvatar } from "./profile-avatar";
 
 import type {
   BadgesResponse,
+  GivenEndorsement,
   MentorExpertiseData,
   MentorVerificationState,
 } from "@/lib/api-types";
@@ -40,6 +42,7 @@ type MentorProfileViewProps = {
   verification: MentorVerificationState | null;
   bio: string | null;
   badges: BadgesResponse;
+  given: GivenEndorsement[] | null;
 };
 
 export function MentorProfileView({
@@ -48,6 +51,7 @@ export function MentorProfileView({
   verification,
   bio,
   badges,
+  given,
 }: MentorProfileViewProps) {
   const headline = `Mentor · ${expertise.areas.slice(0, 2).join(" & ")}`;
   const fee = expertise.session_fee
@@ -139,6 +143,8 @@ export function MentorProfileView({
             />
           </dl>
         </section>
+
+        <EndorsementsGiven items={given} />
 
         <section aria-labelledby="sessions-heading" className={`${cardStyles} p-6`}>
           <h2 id="sessions-heading" className="text-h3">
