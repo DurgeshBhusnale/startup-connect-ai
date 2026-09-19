@@ -1,0 +1,7 @@
+# In-process MiniLM embeddings (Railway and local dev):
+#   pip install -r requirements.txt -r requirements-ml.txt
+# Left out of serverless builds (Vercel), which set EMBEDDINGS_API_URL to a hosted embedding API
+# instead — torch is far too heavy to bundle into a function.
+--extra-index-url https://download.pytorch.org/whl/cpu
+sentence-transformers==6.0.1
+torch==2.14.0+cpu

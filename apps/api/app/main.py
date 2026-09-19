@@ -20,6 +20,7 @@ from app.routers import (
     health,
     intros,
     investor,
+    jobs,
     matches,
     me,
     meetings,
@@ -38,10 +39,19 @@ logging.basicConfig(level=settings.log_level.upper())
 logger = logging.getLogger("startup_connect_api")
 
 
+def _warm_up() -> None:
+    # Missing torch (serverless builds) or a failed download must not stop the API starting:
+    # matching and search fall back to structured-only ranking.
+    try:
+        embeddings.warm_up()
+    except Exception:
+        logger.warning("Embedding model unavailable at startup", exc_info=True)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # Load the embedding model in the background so the first match request doesn't pay for it.
-    warm_up = asyncio.create_task(asyncio.to_thread(embeddings.warm_up))
+    warm_up = asyncio.create_task(asyncio.to_thread(_warm_up))
     yield
     warm_up.cancel()
 
@@ -129,6 +139,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 
 app.include_router(health.router)
+app.include_router(jobs.router)
 app.include_router(me.router)
 app.include_router(profiles.router)
 app.include_router(investor.router)

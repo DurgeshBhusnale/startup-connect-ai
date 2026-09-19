@@ -10,8 +10,8 @@ No secret values are in this document. Real values live only in your local `.env
 | Part | Tech | Deploy target | Folder |
 |---|---|---|---|
 | Web app | Next.js 15.5, React 19, TypeScript, Tailwind 3 | **Vercel** | `apps/web` |
-| API | FastAPI (Python 3.12), SQLAlchemy async, uvicorn | **Railway** (web service) | `apps/api` |
-| Background jobs | Python scripts in `app/workers` | **Railway** (cron services) | `apps/api` |
+| API | FastAPI (Python 3.12), SQLAlchemy async, uvicorn | **Railway** (web service), or **Vercel** for free testing (§5) | `apps/api` |
+| Background jobs | Python scripts in `app/workers` | **Railway** (cron services), or Vercel Cron hitting `/v1/jobs/*` (§5) | `apps/api` |
 | Database + file storage | Supabase Postgres + Supabase Storage | Supabase (managed) | `supabase/migrations` |
 | Auth | Clerk | Clerk (managed) | n/a |
 | Vector search | Qdrant | **Qdrant Cloud** in production | n/a |
@@ -32,7 +32,7 @@ Realtime messaging: Browser → `wss://<api>/v1/ws` directly.
 | **Clerk** | Sign-up / sign-in (email, Google, LinkedIn), sessions, account settings modal, user deletion on purge | **In use** | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` (web + API), sign-in / up URL vars |
 | **Groq** | Deck extraction (M1), match explanations (M8), intro drafts (S5), post moderation (M4) | **In use** | `GROQ_API_KEY`, `GROQ_MODEL` (default `openai/gpt-oss-120b`); moderation model `openai/gpt-oss-safeguard-20b` |
 | **Qdrant** | Profile embeddings for matching (M7) | **In use** (embedded on-disk locally; **must be Qdrant Cloud in production**) | `QDRANT_URL`, `QDRANT_API_KEY`, `QDRANT_COLLECTION` (default `profiles`) |
-| **Hugging Face** (public model download) | Downloads the MiniLM model on first API start (~90 MB) | **In use**, no key needed | optional `HF_TOKEN` for higher rate limits |
+| **Hugging Face** | Downloads the MiniLM model on first API start (~90 MB). On serverless (§5) it instead serves embeddings over its Inference API | **In use** (no key needed for the download; a free token is needed for the hosted API) | `EMBEDDINGS_API_URL`, `EMBEDDINGS_API_KEY` |
 | **Cal.com** | Booking widget on `/matches/[id]/schedule` (S3) | **In use**, no platform key; each user pastes their own Cal.com link | none |
 | **GitHub** | Source repo, auto-deploy trigger for Vercel and Railway | **In use** | repo access |
 | Cloudflare R2 | Planned object storage | **Not used** (replaced by Supabase Storage) | `R2_*` in `.env` are unused, don't set in prod |
@@ -66,6 +66,9 @@ Realtime messaging: Browser → `wss://<api>/v1/ws` directly.
 | `QDRANT_COLLECTION` | no | `profiles` |
 | `CONSENT_POLICY_VERSION` | no | default `2026-09-13`; must match `apps/web/lib/privacy.ts` |
 | `HF_TOKEN` | no | Hugging Face read token (avoids model download rate limits) |
+| `EMBEDDINGS_API_URL` | no (Railway) | Blank runs MiniLM in-process. Set it to use a hosted embedding API instead — required on Vercel (§5) |
+| `EMBEDDINGS_API_KEY` | with the above | Token for that API |
+| `CRON_SECRET` | no (Railway) | Enables `GET /v1/jobs/*` for hosts that trigger jobs over HTTP (§5). Blank leaves those endpoints returning 404 |
 
 ### 3.2 Vercel: web project
 
@@ -119,7 +122,8 @@ Realtime messaging: Browser → `wss://<api>/v1/ws` directly.
 1. railway.app → New Project → **Deploy from GitHub repo** → select the repo.
 2. Service → Settings:
    - **Root Directory:** `apps/api`
-   - **Builder:** Railpack / Nixpacks (auto-detects `requirements.txt`; the file includes the PyTorch CPU index, so no GPU wheels).
+   - **Builder:** Railpack / Nixpacks (auto-detects `requirements.txt`).
+   - **Build Command:** `pip install -r requirements.txt -r requirements-ml.txt` — the second file holds PyTorch (CPU build) and sentence-transformers, which power in-process embeddings. Without it the API still runs, but matching and search fall back to structured-only ranking.
    - **Python version:** add variable `NIXPACKS_PYTHON_VERSION=3.12` (or `RAILPACK_PYTHON_VERSION=3.12`), or add a `.python-version` file containing `3.12` to `apps/api`.
    - **Start Command:**
      ```bash
@@ -159,7 +163,50 @@ Each job must exit when finished (they do). Check a run via the service's Deploy
 
 ---
 
-## 5. Post-deploy smoke test (15 minutes)
+## 5. Option B: put the API on Vercel too (free, for the testing phase)
+
+Same Supabase, Clerk, Groq and Qdrant setup as §4 (steps 1–4), but the API runs as a Vercel Python
+Function instead of a Railway service, so the whole stack sits on Vercel's free Hobby plan. Move to
+Railway (§4, steps 5–6) before real users: the limits below are fine for testing and not for launch.
+
+### 5.1 What changes on Vercel
+
+| Area | On Railway | On Vercel (Hobby) |
+|---|---|---|
+| Embeddings | MiniLM runs in-process (PyTorch) | PyTorch is too heavy for a function, so `requirements.txt` leaves it out. Set `EMBEDDINGS_API_URL` to a hosted embedding API. Without it the API still works, but match ranking and search lose the semantic part |
+| Vector storage | Qdrant Cloud (or container disk) | **Qdrant Cloud only** — functions have no disk |
+| Messaging (S6) | Persistent WebSocket | WebSockets work (Vercel beta) but a connection closes at the function's max duration and is pinned to one instance, so live delivery is best-effort. The app already falls back to a 10-second refresh, so messages still arrive |
+| Background jobs | 4 cron services, every 15 min / nightly | Vercel Cron calls `GET /v1/jobs/*`. **Hobby allows one run per day per job**, so meeting reminders and outcome prompts are daily instead of every 15 minutes |
+| Long requests | No limit in practice | 60 s max per request. Pitch-deck auto-build (M1) on a large deck can hit it |
+| Cold starts | None (always-on) | First request after idle takes a few seconds |
+
+### 5.2 Steps
+1. **Qdrant Cloud** is required here: follow §4 step 3 and keep the URL and key.
+2. **Embedding API (recommended).** Create a free token at huggingface.co → Settings → Access Tokens (read scope), then set:
+   - `EMBEDDINGS_API_URL` = `https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2/pipeline/feature-extraction`
+   - `EMBEDDINGS_API_KEY` = that token
+   Vectors stay 384-dimension and compatible with anything already in Qdrant. Skip this and matching still runs on sector, stage, cheque and geography alone.
+3. **Create a second Vercel project** from the same GitHub repo (the first one is the web app):
+   - **Root Directory:** `apps/api`
+   - **Framework Preset:** Other. There's no build command; `apps/api/vercel.json` routes every path to `api/index.py`, which serves the FastAPI app.
+   - Project Settings → Functions: Python 3.12.
+4. **Environment variables:** everything from §3.1 except `QDRANT_URL` must be set (not blank), plus `EMBEDDINGS_API_URL`, `EMBEDDINGS_API_KEY` and `CRON_SECRET` (any long random string). Leave `PORT` alone — Vercel handles it.
+5. **Deploy**, then check `https://<api-project>.vercel.app/health` returns `{"status":"ok"}`.
+6. **Point the web app at it:** set `NEXT_PUBLIC_API_URL` to that URL in the web project and redeploy.
+7. **Set `CORS_ORIGINS`** in the API project to the web app's exact URL (for example `https://startup-connect-ai.vercel.app`), then redeploy the API. Wrong value = every request 401.
+8. **Cron:** `apps/api/vercel.json` already declares the four daily jobs. Vercel sends `Authorization: Bearer $CRON_SECRET` automatically once that variable is set. Check them under Project → Cron Jobs after the first deploy.
+9. **Run a job by hand** when testing (no need to wait a day):
+   ```bash
+   curl -H "Authorization: Bearer <CRON_SECRET>" https://<api-project>.vercel.app/v1/jobs/compute-trust
+   ```
+   Jobs: `meeting-notifications`, `compute-trust`, `purge-accounts`, `purge-posts`. A wrong or missing secret returns 404.
+
+### 5.3 Moving to Railway later
+Nothing in the database or the web app changes. Deploy §4 steps 5–6, clear `EMBEDDINGS_API_URL` (so
+MiniLM runs in-process again), point `NEXT_PUBLIC_API_URL` at the Railway URL, update `CORS_ORIGINS`,
+and delete or pause the Vercel API project.
+
+## 6. Post-deploy smoke test (15 minutes)
 
 1. Open the site: landing page loads; `/sign-up` shows the Clerk card.
 2. Sign up as a **founder** → `/onboarding`: pick role, accept consents → upload a text-based pitch-deck PDF and a LinkedIn URL → review screen is prefilled (this checks Groq) → save.
@@ -177,7 +224,7 @@ If live messages don't arrive: more than one API replica, or a proxy that blocks
 
 ---
 
-## 6. Local development (reference)
+## 7. Local development (reference)
 
 ```bash
 # Web
@@ -201,7 +248,7 @@ cd apps/web && npx tsc --noEmit && npx next build
 
 ---
 
-## 7. Operations notes and known limits
+## 8. Operations notes and known limits
 
 | Topic | Current state | When to act |
 |---|---|---|

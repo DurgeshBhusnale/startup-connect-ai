@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     qdrant_api_key: str = ""
     qdrant_collection: str = "profiles"
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    # Blank runs MiniLM in this process (needs torch). Set both to call a hosted embedding API
+    # instead — required on serverless hosts like Vercel, where torch is too heavy to bundle.
+    embeddings_api_url: str = ""
+    embeddings_api_key: str = ""
+    embeddings_timeout_seconds: float = 20.0
+    # Shared secret for GET /v1/jobs/* (scheduled jobs). Blank disables those endpoints.
+    cron_secret: str = ""
     match_refresh_hours: int = 12
 
     @property

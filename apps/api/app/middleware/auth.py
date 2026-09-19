@@ -7,11 +7,14 @@ from app.models.common import ProblemDetail
 from app.services.clerk import InvalidSessionTokenError, verify_session_token
 
 PUBLIC_PATHS = frozenset({"/health", "/docs", "/openapi.json"})
+# Scheduled jobs carry the cron secret instead of a Clerk session (see routers/jobs.py).
+PUBLIC_PREFIXES = ("/v1/jobs/",)
 
 
 class ClerkAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        if request.method == "OPTIONS" or request.url.path in PUBLIC_PATHS:
+        path = request.url.path
+        if request.method == "OPTIONS" or path in PUBLIC_PATHS or path.startswith(PUBLIC_PREFIXES):
             return await call_next(request)
 
         scheme, _, token = request.headers.get("authorization", "").partition(" ")

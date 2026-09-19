@@ -1,0 +1,6 @@
+.venv
+.qdrant-local
+__pycache__
+*.pyc
+tests
+requirements-ml.txt
