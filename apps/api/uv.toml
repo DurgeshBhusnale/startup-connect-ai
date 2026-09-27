@@ -1,0 +1,6 @@
+# Vercel's Python builder resolves requirements.txt with uv (Railway uses pip).
+# By default uv takes each package from the FIRST index that lists it, and the PyTorch
+# CPU index in requirements.txt mirrors a few common packages at old pins
+# (urllib3 1.26.13), which makes qdrant-client unresolvable. Both indexes are trusted,
+# so let uv pick the best version across them - the behaviour pip already has.
+index-strategy = "unsafe-best-match"

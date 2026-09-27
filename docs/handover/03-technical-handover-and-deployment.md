@@ -181,21 +181,24 @@ Railway (§4, steps 5–6) before real users: the limits below are fine for test
 
 ### 5.2 Steps
 1. **Qdrant Cloud** is required here: follow §4 step 3 and keep the URL and key.
-2. **Embeddings need no setup:** the function bundles PyTorch and MiniLM, exactly like Railway. Only if the build fails on size, or cold starts feel too slow, create a free Hugging Face token (Settings → Access Tokens, read scope) and set `EMBEDDINGS_API_URL` = `https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2/pipeline/feature-extraction` with `EMBEDDINGS_API_KEY` = that token. Vectors stay 384-dimension either way; with neither, matching still runs on sector, stage, cheque and geography alone.
-3. **Create a second Vercel project** from the same GitHub repo (the first one is the web app):
+2. **Build notes (already handled in the repo):** Vercel resolves `requirements.txt` with **uv**, which by default takes each package from the first index that lists it. The PyTorch CPU index mirrors a few packages at old pins, so resolution fails with `only urllib3==1.26.13 is available`. `apps/api/uv.toml` sets `index-strategy = "unsafe-best-match"`, which is how pip already behaves on Railway. If you ever need it from the dashboard instead, the equivalent build variable is `UV_INDEX_STRATEGY=unsafe-best-match`.
+3. **Embeddings need no setup:** the function bundles PyTorch and MiniLM, exactly like Railway. Watch the bundle size — Vercel allows **500 MB unzipped** for Python functions (5 GB only on Fluid Compute with Active CPU), and PyTorch alone is ~187 MB compressed / ~450 MB installed. Set `VERCEL_ANALYZE_BUILD_OUTPUT=1` to see the breakdown in the build log; if it overflows, use the hosted-embeddings escape hatch at the end of this section.
+4. **Create a second Vercel project** from the same GitHub repo (the first one is the web app):
    - **Root Directory:** `apps/api`
    - **Framework Preset:** Other. There's no build command; `apps/api/vercel.json` routes every path to `api/index.py`, which serves the FastAPI app.
    - Project Settings → Functions: Python 3.12.
-4. **Environment variables:** everything from §3.1 except `QDRANT_URL` must be set (not blank), plus `EMBEDDINGS_API_URL`, `EMBEDDINGS_API_KEY` and `CRON_SECRET` (any long random string). Leave `PORT` alone — Vercel handles it.
-5. **Deploy**, then check `https://<api-project>.vercel.app/health` returns `{"status":"ok"}`.
-6. **Point the web app at it:** set `NEXT_PUBLIC_API_URL` to that URL in the web project and redeploy.
-7. **Set `CORS_ORIGINS`** in the API project to the web app's exact URL (for example `https://startup-connect-ai.vercel.app`), then redeploy the API. Wrong value = every request 401.
-8. **Cron:** `apps/api/vercel.json` already declares the four daily jobs. Vercel sends `Authorization: Bearer $CRON_SECRET` automatically once that variable is set. Check them under Project → Cron Jobs after the first deploy.
-9. **Run a job by hand** when testing (no need to wait a day):
-   ```bash
-   curl -H "Authorization: Bearer <CRON_SECRET>" https://<api-project>.vercel.app/v1/jobs/compute-trust
-   ```
-   Jobs: `meeting-notifications`, `compute-trust`, `purge-accounts`, `purge-posts`. A wrong or missing secret returns 404.
+5. **Environment variables:** everything from §3.1 except `QDRANT_URL` must be set (not blank), plus `CRON_SECRET` (any long random string). `EMBEDDINGS_API_URL` / `EMBEDDINGS_API_KEY` stay blank unless the bundle overflows. Leave `PORT` alone — Vercel handles it.
+6. **Deploy**, then check `https://<api-project>.vercel.app/health` returns `{"status":"ok"}`.
+7. **Point the web app at it:** set `NEXT_PUBLIC_API_URL` to that URL in the web project and redeploy.
+8. **Set `CORS_ORIGINS`** in the API project to the web app's exact URL (for example `https://startup-connect-ai.vercel.app`), then redeploy the API. Wrong value = every request 401.
+9. **Cron:** `apps/api/vercel.json` already declares the four daily jobs. Vercel sends `Authorization: Bearer $CRON_SECRET` automatically once that variable is set. Check them under Project → Cron Jobs after the first deploy.
+10. **Run a job by hand** when testing (no need to wait a day):
+    ```bash
+    curl -H "Authorization: Bearer <CRON_SECRET>" https://<api-project>.vercel.app/v1/jobs/compute-trust
+    ```
+    Jobs: `meeting-notifications`, `compute-trust`, `purge-accounts`, `purge-posts`. A wrong or missing secret returns 404.
+
+**If the deploy fails with `exceeded the unzipped maximum size`:** the ML stack does not fit. Move `sentence-transformers` and `torch` (and the `--extra-index-url` line) out of `requirements.txt` into a second file that only Railway installs, then set `EMBEDDINGS_API_URL` = `https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2/pipeline/feature-extraction` and `EMBEDDINGS_API_KEY` = a free Hugging Face token (Settings → Access Tokens, read scope). Vectors stay 384-dimension and stay compatible with whatever is already in Qdrant. With neither the local model nor the API, the app still runs but matching and search fall back to structured-only ranking.
 
 ### 5.3 Moving to Railway later
 Nothing in the database or the web app changes. Deploy §4 steps 5–6, point `NEXT_PUBLIC_API_URL` at
