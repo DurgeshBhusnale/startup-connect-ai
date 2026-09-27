@@ -72,3 +72,6 @@ secrets/
 
 # OS
 Thumbs.db
+
+# Database dumps: personal data, never commit
+backups/

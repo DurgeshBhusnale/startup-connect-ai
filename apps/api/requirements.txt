@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 asyncpg==0.31.0
 fastapi==0.141.1
 openai==3.13.0
@@ -8,5 +9,7 @@ pyjwt[crypto]==2.14.0
 pypdf==6.18.1
 python-multipart==0.0.32
 qdrant-client==1.19.0
+sentence-transformers==6.0.1
 sqlalchemy[asyncio]==2.0.52
+torch==2.14.0+cpu
 uvicorn[standard]==0.52.4

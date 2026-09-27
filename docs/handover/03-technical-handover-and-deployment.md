@@ -32,7 +32,7 @@ Realtime messaging: Browser → `wss://<api>/v1/ws` directly.
 | **Clerk** | Sign-up / sign-in (email, Google, LinkedIn), sessions, account settings modal, user deletion on purge | **In use** | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` (web + API), sign-in / up URL vars |
 | **Groq** | Deck extraction (M1), match explanations (M8), intro drafts (S5), post moderation (M4) | **In use** | `GROQ_API_KEY`, `GROQ_MODEL` (default `openai/gpt-oss-120b`); moderation model `openai/gpt-oss-safeguard-20b` |
 | **Qdrant** | Profile embeddings for matching (M7) | **In use** (embedded on-disk locally; **must be Qdrant Cloud in production**) | `QDRANT_URL`, `QDRANT_API_KEY`, `QDRANT_COLLECTION` (default `profiles`) |
-| **Hugging Face** | Downloads the MiniLM model on first API start (~90 MB). On serverless (§5) it instead serves embeddings over its Inference API | **In use** (no key needed for the download; a free token is needed for the hosted API) | `EMBEDDINGS_API_URL`, `EMBEDDINGS_API_KEY` |
+| **Hugging Face** (public model download) | Downloads the MiniLM model on first API start (~90 MB); can also serve embeddings over its Inference API as a fallback (§5) | **In use**, no key needed | optional `HF_TOKEN`; `EMBEDDINGS_API_URL` / `EMBEDDINGS_API_KEY` only for that fallback |
 | **Cal.com** | Booking widget on `/matches/[id]/schedule` (S3) | **In use**, no platform key; each user pastes their own Cal.com link | none |
 | **GitHub** | Source repo, auto-deploy trigger for Vercel and Railway | **In use** | repo access |
 | Cloudflare R2 | Planned object storage | **Not used** (replaced by Supabase Storage) | `R2_*` in `.env` are unused, don't set in prod |
@@ -66,7 +66,7 @@ Realtime messaging: Browser → `wss://<api>/v1/ws` directly.
 | `QDRANT_COLLECTION` | no | `profiles` |
 | `CONSENT_POLICY_VERSION` | no | default `2026-09-13`; must match `apps/web/lib/privacy.ts` |
 | `HF_TOKEN` | no | Hugging Face read token (avoids model download rate limits) |
-| `EMBEDDINGS_API_URL` | no (Railway) | Blank runs MiniLM in-process. Set it to use a hosted embedding API instead — required on Vercel (§5) |
+| `EMBEDDINGS_API_URL` | no | Blank runs MiniLM in-process (the default on both hosts). Set it to call a hosted embedding API instead — the fallback if a serverless build gets too big (§5) |
 | `EMBEDDINGS_API_KEY` | with the above | Token for that API |
 | `CRON_SECRET` | no (Railway) | Enables `GET /v1/jobs/*` for hosts that trigger jobs over HTTP (§5). Blank leaves those endpoints returning 404 |
 
@@ -122,8 +122,7 @@ Realtime messaging: Browser → `wss://<api>/v1/ws` directly.
 1. railway.app → New Project → **Deploy from GitHub repo** → select the repo.
 2. Service → Settings:
    - **Root Directory:** `apps/api`
-   - **Builder:** Railpack / Nixpacks (auto-detects `requirements.txt`).
-   - **Build Command:** `pip install -r requirements.txt -r requirements-ml.txt` — the second file holds PyTorch (CPU build) and sentence-transformers, which power in-process embeddings. Without it the API still runs, but matching and search fall back to structured-only ranking.
+   - **Builder:** Railpack / Nixpacks (auto-detects `requirements.txt`; the file includes the PyTorch CPU index, so no GPU wheels).
    - **Python version:** add variable `NIXPACKS_PYTHON_VERSION=3.12` (or `RAILPACK_PYTHON_VERSION=3.12`), or add a `.python-version` file containing `3.12` to `apps/api`.
    - **Start Command:**
      ```bash
@@ -173,7 +172,7 @@ Railway (§4, steps 5–6) before real users: the limits below are fine for test
 
 | Area | On Railway | On Vercel (Hobby) |
 |---|---|---|
-| Embeddings | MiniLM runs in-process (PyTorch) | PyTorch is too heavy for a function, so `requirements.txt` leaves it out. Set `EMBEDDINGS_API_URL` to a hosted embedding API. Without it the API still works, but match ranking and search lose the semantic part |
+| Embeddings | MiniLM runs in-process (PyTorch) | Same `requirements.txt`: PyTorch and sentence-transformers are bundled into the function. Expect a slow first request after idle (torch import, plus a ~90 MB model download into the function's temp space). If a build ever trips Vercel's function size limit, switch to a hosted embedding API with `EMBEDDINGS_API_URL` / `EMBEDDINGS_API_KEY` |
 | Vector storage | Qdrant Cloud (or container disk) | **Qdrant Cloud only** — functions have no disk |
 | Messaging (S6) | Persistent WebSocket | WebSockets work (Vercel beta) but a connection closes at the function's max duration and is pinned to one instance, so live delivery is best-effort. The app already falls back to a 10-second refresh, so messages still arrive |
 | Background jobs | 4 cron services, every 15 min / nightly | Vercel Cron calls `GET /v1/jobs/*`. **Hobby allows one run per day per job**, so meeting reminders and outcome prompts are daily instead of every 15 minutes |
@@ -182,10 +181,7 @@ Railway (§4, steps 5–6) before real users: the limits below are fine for test
 
 ### 5.2 Steps
 1. **Qdrant Cloud** is required here: follow §4 step 3 and keep the URL and key.
-2. **Embedding API (recommended).** Create a free token at huggingface.co → Settings → Access Tokens (read scope), then set:
-   - `EMBEDDINGS_API_URL` = `https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2/pipeline/feature-extraction`
-   - `EMBEDDINGS_API_KEY` = that token
-   Vectors stay 384-dimension and compatible with anything already in Qdrant. Skip this and matching still runs on sector, stage, cheque and geography alone.
+2. **Embeddings need no setup:** the function bundles PyTorch and MiniLM, exactly like Railway. Only if the build fails on size, or cold starts feel too slow, create a free Hugging Face token (Settings → Access Tokens, read scope) and set `EMBEDDINGS_API_URL` = `https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2/pipeline/feature-extraction` with `EMBEDDINGS_API_KEY` = that token. Vectors stay 384-dimension either way; with neither, matching still runs on sector, stage, cheque and geography alone.
 3. **Create a second Vercel project** from the same GitHub repo (the first one is the web app):
    - **Root Directory:** `apps/api`
    - **Framework Preset:** Other. There's no build command; `apps/api/vercel.json` routes every path to `api/index.py`, which serves the FastAPI app.
@@ -202,9 +198,9 @@ Railway (§4, steps 5–6) before real users: the limits below are fine for test
    Jobs: `meeting-notifications`, `compute-trust`, `purge-accounts`, `purge-posts`. A wrong or missing secret returns 404.
 
 ### 5.3 Moving to Railway later
-Nothing in the database or the web app changes. Deploy §4 steps 5–6, clear `EMBEDDINGS_API_URL` (so
-MiniLM runs in-process again), point `NEXT_PUBLIC_API_URL` at the Railway URL, update `CORS_ORIGINS`,
-and delete or pause the Vercel API project.
+Nothing in the database or the web app changes. Deploy §4 steps 5–6, point `NEXT_PUBLIC_API_URL` at
+the Railway URL, update `CORS_ORIGINS`, and delete or pause the Vercel API project. If you ever set
+`EMBEDDINGS_API_URL`, clear it so MiniLM runs in-process again.
 
 ## 6. Post-deploy smoke test (15 minutes)
 
@@ -264,3 +260,74 @@ cd apps/web && npx tsc --noEmit && npx next build
 
 API routes live under `/v1` (see `apps/api/app/routers/*.py`); the OpenAPI UI is at `/docs` in non-production.
 Project conventions and every feature decision are in `CLAUDE.md`.
+
+---
+
+## 9. Moving to a new Supabase project
+
+For when the current project is paused, out of free-tier room, or you want a clean production database.
+
+### 9.1 Choose: clean start or copy the data
+Everything in the database today is test data — your three accounts plus the seeded demo network — so a
+clean start is usually faster and leaves no demo rows behind.
+
+| | Clean start (recommended now) | Copy the data |
+|---|---|---|
+| Steps | 9.2 → 9.3 → 9.4 → 9.6 → 9.7 → 9.8 | 9.2 → 9.3 → 9.4 → 9.5 → 9.6 → 9.7 |
+| Your Clerk logins | Unchanged; onboarding runs again (role + consents) | Unchanged; profiles come back as they were |
+| Time | ~10 minutes | ~20 minutes |
+
+### 9.2 Back up the old project (do this either way)
+From the repo root, using the **old** project's Session pooler / direct URI (port 5432, starting
+`postgresql://`, not `postgresql+asyncpg://`):
+
+```bash
+mkdir -p backups
+npx supabase db dump --db-url "<OLD_SESSION_URL>" -f backups/schema.sql
+npx supabase db dump --db-url "<OLD_SESSION_URL>" --data-only --use-copy -f backups/data.sql
+```
+
+`backups/` is git-ignored: the dump holds personal data, so keep it off GitHub. Uploaded images live in
+Storage → `post-media`; download any you want to keep (seeded ones are regenerated).
+
+### 9.3 Create the new project
+Supabase → **New project**. Region Mumbai (`ap-south-1`), strong database password. Then copy from
+Project Settings: **Database → Transaction pooler** URI (port 6543), **Database → Session pooler** URI
+(port 5432), and **API → Project URL** plus the **service_role** key.
+
+### 9.4 Create the schema
+```bash
+npx supabase db push --db-url "<NEW_SESSION_URL>"
+```
+This replays every migration in `supabase/migrations`. Check the Table Editor, and that Storage lists
+the private `post-media` bucket.
+
+### 9.5 Restore the data (only when copying)
+```bash
+psql "<NEW_SESSION_URL>" -v ON_ERROR_STOP=1 -c "set session_replication_role = replica;" -f backups/data.sql
+```
+`session_replication_role = replica` defers foreign-key and trigger checks for the session, so table
+order in the dump can't fail the restore. Both arguments run in the same session.
+
+### 9.6 Point the app at the new project
+In the repo-root `.env`, and in Vercel / Railway (then redeploy):
+- `DATABASE_URL` — the **transaction pooler** URI, rewritten as `postgresql+asyncpg://…:6543/postgres`
+- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — the new project's values
+
+Restart the API, check `GET /health`, then load any signed-in page.
+
+### 9.7 Reset the vector store
+Profile ids change on a clean start, so old vectors point at rows that no longer exist:
+- **Local (embedded Qdrant):** delete `apps/api/.qdrant-local`.
+- **Qdrant Cloud:** delete the `profiles` collection in the dashboard.
+
+The API recreates the collection and re-embeds profiles on the next Matches or search request.
+
+### 9.8 Recreate accounts and demo data (clean start)
+Sign in with each of the three accounts, finish `/onboarding` (role + consents), then re-run the seed:
+
+```bash
+cd apps/api && .venv/Scripts/python.exe -m app.seed.demo --founder <email> --investor <email> --mentor <email>
+```
+
+Keep the old project until the new one has been exercised, then delete it and store `backups/` safely.
