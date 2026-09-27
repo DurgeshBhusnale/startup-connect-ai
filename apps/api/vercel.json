@@ -1,17 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/index.py": {
-      "maxDuration": 60,
-      "includeFiles": "app/**"
+    "app/main.py": {
+      "maxDuration": 60
     }
   },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api/index"
-    }
-  ],
   "crons": [
     {
       "path": "/v1/jobs/meeting-notifications",

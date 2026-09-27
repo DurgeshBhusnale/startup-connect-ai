@@ -82,7 +82,7 @@ Realtime messaging: Browser → `wss://<api>/v1/ws` directly.
 | `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL` | yes | `/home` |
 | `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL` | yes | `/onboarding` |
 
-`NEXT_PUBLIC_*` values are baked in at build time, so **redeploy Vercel after changing them**.
+Vercel splits these in two: the six `NEXT_PUBLIC_*` values go under **Config** (they reach the browser by design, and the dashboard refuses a public prefix under Environment Variables — *"Remove the public framework prefix to keep this value private"*), while `CLERK_SECRET_KEY` stays under **Environment Variables**. `NEXT_PUBLIC_API_URL` takes the API project's URL with **no trailing slash**: `lib/api.ts` concatenates paths onto it, so a trailing slash produces `//v1/...` and every call 404s. All `NEXT_PUBLIC_*` values are baked in at build time, so redeploy the web app after changing one.
 
 ---
 
@@ -188,9 +188,10 @@ Railway (§4, steps 5–6) before real users: the limits below are fine for test
    Vectors stay 384-dimension, so anything already in Qdrant stays valid. Skip this and the API still runs, but matching and search drop the semantic half of the score and rank on sector, stage, cheque and geography alone.
 3. **Create a second Vercel project** from the same GitHub repo (the first one is the web app):
    - **Root Directory:** `apps/api`
-   - **Framework Preset:** Other. There's no build command; `apps/api/vercel.json` routes every path to `api/index.py`, which serves the FastAPI app.
-   - Project Settings → Functions: Python 3.12.
-4. **Environment variables:** everything from §3.1 except `QDRANT_URL` must be set (not blank), plus `EMBEDDINGS_API_URL`, `EMBEDDINGS_API_KEY` and `CRON_SECRET` (any long random string). Leave `PORT` alone — Vercel handles it.
+   - **Framework Preset:** FastAPI (Vercel detects it from `requirements.txt` and loads the `app` variable from `app/main.py`, one of its supported entrypoint paths). It routes every path to that app with the original path intact, so **`vercel.json` must not contain `rewrites`** — a catch-all rewrite hands FastAPI the rewritten path and every route answers as `/api/index`.
+   - `apps/api/vercel.json` only sets `maxDuration` and the cron schedule.
+   - Python 3.12 comes from `apps/api/.python-version`.
+4. **Environment variables:** everything from §3.1 except `QDRANT_URL` must be set (not blank), plus `EMBEDDINGS_API_URL`, `EMBEDDINGS_API_KEY` and `CRON_SECRET` (any long random string). Leave `PORT` alone — Vercel handles it. Every API variable is a secret, so they all belong under **Environment Variables**, not Config.
 5. **Deploy**, then check `https://<api-project>.vercel.app/health` returns `{"status":"ok"}`.
 6. **Point the web app at it:** set `NEXT_PUBLIC_API_URL` to that URL in the web project and redeploy.
 7. **Set `CORS_ORIGINS`** in the API project to the web app's exact URL (for example `https://startup-connect-ai.vercel.app`), then redeploy the API. Wrong value = every request 401.
@@ -209,6 +210,7 @@ Railway (§4, steps 5–6) before real users: the limits below are fine for test
 | `only urllib3==1.26.13 is available ... qdrant-client cannot be used` | Vercel resolves with **uv**, not pip, and uv takes each package from the first index that lists it. Any `--extra-index-url` for the PyTorch wheels brings its old mirrors of common packages with it. If that index is ever needed here, set the build variable `UV_INDEX_STRATEGY=unsafe-best-match` |
 | `no version of torch==2.14.0+cpu` | A `uv.toml` in `apps/api` replaces the whole `[tool.uv].index` field of the `pyproject.toml` Vercel generates from `requirements.txt`, dropping the PyTorch index. Re-declare the index in that file, or delete it |
 | Build log shows an old commit hash | Vercel's **Redeploy** rebuilds the same commit. Use Deployments → Create Deployment, or push |
+| Every route answers 401 `Missing bearer token` with `"instance": "/api/index"`, including `/health` | A catch-all `rewrites` entry in `vercel.json`. Vercel now gives backend-framework projects the *rewritten* path, so FastAPI matched no route and the auth middleware saw a non-public path. Delete the `rewrites` block (the build log warns about this) |
 
 ### 5.3 Moving to Railway later
 Nothing in the database or the web app changes. Deploy §4 steps 5–6, point `NEXT_PUBLIC_API_URL` at
