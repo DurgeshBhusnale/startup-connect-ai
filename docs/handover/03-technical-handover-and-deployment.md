@@ -15,7 +15,7 @@ No secret values are in this document. Real values live only in your local `.env
 | Database + file storage | Supabase Postgres + Supabase Storage | Supabase (managed) | `supabase/migrations` |
 | Auth | Clerk | Clerk (managed) | n/a |
 | Vector search | Qdrant | **Qdrant Cloud** in production | n/a |
-| Embeddings | sentence-transformers `all-MiniLM-L6-v2` (runs inside the API, CPU) | Railway | n/a |
+| Embeddings | sentence-transformers `all-MiniLM-L6-v2`, 384-dimension | in the API process on Railway; hosted API on Vercel (§5) | n/a |
 | LLM | Groq, OpenAI-compatible API | Groq (managed) | n/a |
 | Scheduling | Cal.com embed (in the browser) | Cal.com (each user's own account) | n/a |
 
@@ -32,7 +32,7 @@ Realtime messaging: Browser → `wss://<api>/v1/ws` directly.
 | **Clerk** | Sign-up / sign-in (email, Google, LinkedIn), sessions, account settings modal, user deletion on purge | **In use** | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` (web + API), sign-in / up URL vars |
 | **Groq** | Deck extraction (M1), match explanations (M8), intro drafts (S5), post moderation (M4) | **In use** | `GROQ_API_KEY`, `GROQ_MODEL` (default `openai/gpt-oss-120b`); moderation model `openai/gpt-oss-safeguard-20b` |
 | **Qdrant** | Profile embeddings for matching (M7) | **In use** (embedded on-disk locally; **must be Qdrant Cloud in production**) | `QDRANT_URL`, `QDRANT_API_KEY`, `QDRANT_COLLECTION` (default `profiles`) |
-| **Hugging Face** (public model download) | Downloads the MiniLM model on first API start (~90 MB); can also serve embeddings over its Inference API as a fallback (§5) | **In use**, no key needed | optional `HF_TOKEN`; `EMBEDDINGS_API_URL` / `EMBEDDINGS_API_KEY` only for that fallback |
+| **Hugging Face** | Downloads the MiniLM model on first API start (~90 MB) when it runs in-process; serves the embeddings over its Inference API when it does not (§5, the Vercel path) | **In use** | no key needed for the download, optional `HF_TOKEN`; a free read token in `EMBEDDINGS_API_KEY` for the hosted API |
 | **Cal.com** | Booking widget on `/matches/[id]/schedule` (S3) | **In use**, no platform key; each user pastes their own Cal.com link | none |
 | **GitHub** | Source repo, auto-deploy trigger for Vercel and Railway | **In use** | repo access |
 | Cloudflare R2 | Planned object storage | **Not used** (replaced by Supabase Storage) | `R2_*` in `.env` are unused, don't set in prod |
@@ -66,7 +66,7 @@ Realtime messaging: Browser → `wss://<api>/v1/ws` directly.
 | `QDRANT_COLLECTION` | no | `profiles` |
 | `CONSENT_POLICY_VERSION` | no | default `2026-09-13`; must match `apps/web/lib/privacy.ts` |
 | `HF_TOKEN` | no | Hugging Face read token (avoids model download rate limits) |
-| `EMBEDDINGS_API_URL` | no | Blank runs MiniLM in-process (the default on both hosts). Set it to call a hosted embedding API instead — the fallback if a serverless build gets too big (§5) |
+| `EMBEDDINGS_API_URL` | **on Vercel** | Blank runs MiniLM in-process (Railway, local). Set it to call a hosted embedding API instead, which serverless needs (§5). With neither, matching and search fall back to structured-only ranking |
 | `EMBEDDINGS_API_KEY` | with the above | Token for that API |
 | `CRON_SECRET` | no (Railway) | Enables `GET /v1/jobs/*` for hosts that trigger jobs over HTTP (§5). Blank leaves those endpoints returning 404 |
 
@@ -122,7 +122,8 @@ Realtime messaging: Browser → `wss://<api>/v1/ws` directly.
 1. railway.app → New Project → **Deploy from GitHub repo** → select the repo.
 2. Service → Settings:
    - **Root Directory:** `apps/api`
-   - **Builder:** Railpack / Nixpacks (auto-detects `requirements.txt`; the file includes the PyTorch CPU index, so no GPU wheels).
+   - **Builder:** Railpack / Nixpacks (auto-detects `requirements.txt`).
+   - **Build Command:** `pip install -r requirements.txt -r requirements-ml.txt` — the second file holds PyTorch (CPU build) and sentence-transformers for in-process embeddings. Without it the API still runs, but matching and search fall back to structured-only ranking.
    - **Python version:** add variable `NIXPACKS_PYTHON_VERSION=3.12` (or `RAILPACK_PYTHON_VERSION=3.12`), or add a `.python-version` file containing `3.12` to `apps/api`.
    - **Start Command:**
      ```bash
@@ -172,7 +173,7 @@ Railway (§4, steps 5–6) before real users: the limits below are fine for test
 
 | Area | On Railway | On Vercel (Hobby) |
 |---|---|---|
-| Embeddings | MiniLM runs in-process (PyTorch) | Same `requirements.txt`: PyTorch and sentence-transformers are bundled into the function. Expect a slow first request after idle (torch import, plus a ~90 MB model download into the function's temp space). If a build ever trips Vercel's function size limit, switch to a hosted embedding API with `EMBEDDINGS_API_URL` / `EMBEDDINGS_API_KEY` |
+| Embeddings | MiniLM runs in-process (PyTorch) | **Hosted API required.** Vercel bundles everything it installs into the function and allows 500 MB unzipped; with torch the bundle measured **1,129 MB** (2026-09-28). PyTorch and sentence-transformers therefore live in `requirements-ml.txt`, which only Railway and local dev install, and Vercel sets `EMBEDDINGS_API_URL` |
 | Vector storage | Qdrant Cloud (or container disk) | **Qdrant Cloud only** — functions have no disk |
 | Messaging (S6) | Persistent WebSocket | WebSockets work (Vercel beta) but a connection closes at the function's max duration and is pinned to one instance, so live delivery is best-effort. The app already falls back to a 10-second refresh, so messages still arrive |
 | Background jobs | 4 cron services, every 15 min / nightly | Vercel Cron calls `GET /v1/jobs/*`. **Hobby allows one run per day per job**, so meeting reminders and outcome prompts are daily instead of every 15 minutes |
@@ -181,31 +182,38 @@ Railway (§4, steps 5–6) before real users: the limits below are fine for test
 
 ### 5.2 Steps
 1. **Qdrant Cloud** is required here: follow §4 step 3 and keep the URL and key.
-2. **Build notes (already handled in the repo):** Vercel resolves `requirements.txt` with **uv**, not pip, and generates its own `pyproject.toml` from it. Two consequences, both fixed by `apps/api/uv.toml`:
-   - uv takes each package from the *first* index that lists it, so the PyTorch CPU index's old `urllib3` pin makes `qdrant-client` unresolvable (`only urllib3==1.26.13 is available`). `index-strategy = "unsafe-best-match"` restores pip's behaviour.
-   - `uv.toml` replaces the generated `[tool.uv].index` field wholesale, so the PyTorch index is re-declared there as well. **If you change the `--extra-index-url` line in `requirements.txt`, change `uv.toml` to match** or the build fails with `no version of torch==2.14.0+cpu`.
-3. **Embeddings need no setup:** the function bundles PyTorch and MiniLM, exactly like Railway. Watch the bundle size — Vercel allows **500 MB unzipped** for Python functions (5 GB only on Fluid Compute with Active CPU), and PyTorch alone is ~187 MB compressed / ~450 MB installed. Set `VERCEL_ANALYZE_BUILD_OUTPUT=1` to see the breakdown in the build log; if it overflows, use the hosted-embeddings escape hatch at the end of this section.
-4. **Create a second Vercel project** from the same GitHub repo (the first one is the web app):
+2. **Hosted embeddings are required** (the function cannot carry PyTorch). Create a free token at huggingface.co → Settings → Access Tokens (read scope), then set on the API project:
+   - `EMBEDDINGS_API_URL` = `https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2/pipeline/feature-extraction`
+   - `EMBEDDINGS_API_KEY` = that token
+   Vectors stay 384-dimension, so anything already in Qdrant stays valid. Skip this and the API still runs, but matching and search drop the semantic half of the score and rank on sector, stage, cheque and geography alone.
+3. **Create a second Vercel project** from the same GitHub repo (the first one is the web app):
    - **Root Directory:** `apps/api`
    - **Framework Preset:** Other. There's no build command; `apps/api/vercel.json` routes every path to `api/index.py`, which serves the FastAPI app.
    - Project Settings → Functions: Python 3.12.
-5. **Environment variables:** everything from §3.1 except `QDRANT_URL` must be set (not blank), plus `CRON_SECRET` (any long random string). `EMBEDDINGS_API_URL` / `EMBEDDINGS_API_KEY` stay blank unless the bundle overflows. Leave `PORT` alone — Vercel handles it.
-6. **Deploy**, then check `https://<api-project>.vercel.app/health` returns `{"status":"ok"}`.
-7. **Point the web app at it:** set `NEXT_PUBLIC_API_URL` to that URL in the web project and redeploy.
-8. **Set `CORS_ORIGINS`** in the API project to the web app's exact URL (for example `https://startup-connect-ai.vercel.app`), then redeploy the API. Wrong value = every request 401.
-9. **Cron:** `apps/api/vercel.json` already declares the four daily jobs. Vercel sends `Authorization: Bearer $CRON_SECRET` automatically once that variable is set. Check them under Project → Cron Jobs after the first deploy.
-10. **Run a job by hand** when testing (no need to wait a day):
-    ```bash
-    curl -H "Authorization: Bearer <CRON_SECRET>" https://<api-project>.vercel.app/v1/jobs/compute-trust
-    ```
-    Jobs: `meeting-notifications`, `compute-trust`, `purge-accounts`, `purge-posts`. A wrong or missing secret returns 404.
+4. **Environment variables:** everything from §3.1 except `QDRANT_URL` must be set (not blank), plus `EMBEDDINGS_API_URL`, `EMBEDDINGS_API_KEY` and `CRON_SECRET` (any long random string). Leave `PORT` alone — Vercel handles it.
+5. **Deploy**, then check `https://<api-project>.vercel.app/health` returns `{"status":"ok"}`.
+6. **Point the web app at it:** set `NEXT_PUBLIC_API_URL` to that URL in the web project and redeploy.
+7. **Set `CORS_ORIGINS`** in the API project to the web app's exact URL (for example `https://startup-connect-ai.vercel.app`), then redeploy the API. Wrong value = every request 401.
+8. **Cron:** `apps/api/vercel.json` already declares the four daily jobs. Vercel sends `Authorization: Bearer $CRON_SECRET` automatically once that variable is set. Check them under Project → Cron Jobs after the first deploy.
+9. **Run a job by hand** when testing (no need to wait a day):
+   ```bash
+   curl -H "Authorization: Bearer <CRON_SECRET>" https://<api-project>.vercel.app/v1/jobs/compute-trust
+   ```
+   Jobs: `meeting-notifications`, `compute-trust`, `purge-accounts`, `purge-posts`. A wrong or missing secret returns 404.
 
-**If the deploy fails with `exceeded the unzipped maximum size`:** the ML stack does not fit. Move `sentence-transformers` and `torch` (and the `--extra-index-url` line) out of `requirements.txt` into a second file that only Railway installs, then set `EMBEDDINGS_API_URL` = `https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2/pipeline/feature-extraction` and `EMBEDDINGS_API_KEY` = a free Hugging Face token (Settings → Access Tokens, read scope). Vectors stay 384-dimension and stay compatible with whatever is already in Qdrant. With neither the local model nor the API, the app still runs but matching and search fall back to structured-only ranking.
+**Build errors seen on this path (2026-09-28), for when the requirements change again:**
+
+| Error | Cause |
+|---|---|
+| `Total bundle size (1129.56 MB) exceeds the maximum function size (500 MB)` | PyTorch was in `requirements.txt`. That is why it now lives in `requirements-ml.txt` and Vercel uses a hosted embedding API. Set `VERCEL_ANALYZE_BUILD_OUTPUT=1` to see the per-package breakdown in the build log |
+| `only urllib3==1.26.13 is available ... qdrant-client cannot be used` | Vercel resolves with **uv**, not pip, and uv takes each package from the first index that lists it. Any `--extra-index-url` for the PyTorch wheels brings its old mirrors of common packages with it. If that index is ever needed here, set the build variable `UV_INDEX_STRATEGY=unsafe-best-match` |
+| `no version of torch==2.14.0+cpu` | A `uv.toml` in `apps/api` replaces the whole `[tool.uv].index` field of the `pyproject.toml` Vercel generates from `requirements.txt`, dropping the PyTorch index. Re-declare the index in that file, or delete it |
+| Build log shows an old commit hash | Vercel's **Redeploy** rebuilds the same commit. Use Deployments → Create Deployment, or push |
 
 ### 5.3 Moving to Railway later
 Nothing in the database or the web app changes. Deploy §4 steps 5–6, point `NEXT_PUBLIC_API_URL` at
 the Railway URL, update `CORS_ORIGINS`, and delete or pause the Vercel API project. If you ever set
-`EMBEDDINGS_API_URL`, clear it so MiniLM runs in-process again.
+`EMBEDDINGS_API_URL` and `EMBEDDINGS_API_KEY`, clear them so MiniLM runs in-process again (Railway installs `requirements-ml.txt`).
 
 ## 6. Post-deploy smoke test (15 minutes)
 
@@ -233,7 +241,7 @@ cd apps/web && npm install && npm run dev        # http://localhost:3000
 
 # API (uv venv already at apps/api/.venv; Windows path shown)
 cd apps/api
-uv pip install --python .venv/Scripts/python.exe -r requirements.txt
+uv pip install --python .venv/Scripts/python.exe -r requirements.txt -r requirements-ml.txt
 .venv/Scripts/python.exe -m uvicorn app.main:app --reload   # http://localhost:8000/docs
 
 # Migrations (from repo root)

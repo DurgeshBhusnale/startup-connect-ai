@@ -1,0 +1,9 @@
+# In-process MiniLM embeddings. Installed on Railway and for local development, on top of
+# requirements.txt:  pip install -r requirements.txt -r requirements-ml.txt
+#
+# Left out of requirements.txt because Vercel bundles everything it installs into the
+# function, and torch pushes it to ~1.1 GB against a 500 MB limit. Serverless deploys set
+# EMBEDDINGS_API_URL instead and get the same 384-dimension vectors from a hosted API.
+--extra-index-url https://download.pytorch.org/whl/cpu
+sentence-transformers==6.0.1
+torch==2.14.0+cpu
