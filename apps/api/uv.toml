@@ -1,6 +1,19 @@
-# Vercel's Python builder resolves requirements.txt with uv (Railway uses pip).
-# By default uv takes each package from the FIRST index that lists it, and the PyTorch
-# CPU index in requirements.txt mirrors a few common packages at old pins
-# (urllib3 1.26.13), which makes qdrant-client unresolvable. Both indexes are trusted,
-# so let uv pick the best version across them - the behaviour pip already has.
+# Vercel's Python builder resolves requirements.txt with uv (Railway and local use pip).
+# Two uv behaviours need correcting here:
+#
+# 1. uv takes each package from the FIRST index that lists it. The PyTorch CPU index
+#    mirrors a few common packages at old pins (urllib3 1.26.13), which makes
+#    qdrant-client unresolvable. Both indexes are trusted, so let uv pick the best
+#    version across them - the behaviour pip already has.
+# 2. This file overrides the whole `[tool.uv].index` field of the pyproject.toml that
+#    Vercel generates from requirements.txt, so the PyTorch index has to be repeated
+#    here or torch==2.14.0+cpu cannot be found. Keep it in step with the
+#    --extra-index-url line in requirements.txt, which is what pip reads.
+#
+# Verified against Vercel's layout: torch resolves from the CPU index, everything else
+# from PyPI (urllib3 2.8.0, numpy 2.5.3).
 index-strategy = "unsafe-best-match"
+
+[[index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"

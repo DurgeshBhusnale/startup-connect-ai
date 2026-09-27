@@ -181,7 +181,9 @@ Railway (§4, steps 5–6) before real users: the limits below are fine for test
 
 ### 5.2 Steps
 1. **Qdrant Cloud** is required here: follow §4 step 3 and keep the URL and key.
-2. **Build notes (already handled in the repo):** Vercel resolves `requirements.txt` with **uv**, which by default takes each package from the first index that lists it. The PyTorch CPU index mirrors a few packages at old pins, so resolution fails with `only urllib3==1.26.13 is available`. `apps/api/uv.toml` sets `index-strategy = "unsafe-best-match"`, which is how pip already behaves on Railway. If you ever need it from the dashboard instead, the equivalent build variable is `UV_INDEX_STRATEGY=unsafe-best-match`.
+2. **Build notes (already handled in the repo):** Vercel resolves `requirements.txt` with **uv**, not pip, and generates its own `pyproject.toml` from it. Two consequences, both fixed by `apps/api/uv.toml`:
+   - uv takes each package from the *first* index that lists it, so the PyTorch CPU index's old `urllib3` pin makes `qdrant-client` unresolvable (`only urllib3==1.26.13 is available`). `index-strategy = "unsafe-best-match"` restores pip's behaviour.
+   - `uv.toml` replaces the generated `[tool.uv].index` field wholesale, so the PyTorch index is re-declared there as well. **If you change the `--extra-index-url` line in `requirements.txt`, change `uv.toml` to match** or the build fails with `no version of torch==2.14.0+cpu`.
 3. **Embeddings need no setup:** the function bundles PyTorch and MiniLM, exactly like Railway. Watch the bundle size — Vercel allows **500 MB unzipped** for Python functions (5 GB only on Fluid Compute with Active CPU), and PyTorch alone is ~187 MB compressed / ~450 MB installed. Set `VERCEL_ANALYZE_BUILD_OUTPUT=1` to see the breakdown in the build log; if it overflows, use the hosted-embeddings escape hatch at the end of this section.
 4. **Create a second Vercel project** from the same GitHub repo (the first one is the web app):
    - **Root Directory:** `apps/api`
