@@ -8,7 +8,8 @@ const footerColumns = [
     links: [
       { href: "/#how-it-works", label: "How it works" },
       { href: "/#for-founders", label: "For founders" },
-      { href: "/#for-investors", label: "For investors & mentors" },
+      { href: "/for-investors", label: "For investors" },
+      { href: "/for-mentors", label: "For mentors" },
       { href: "/sign-up", label: "Get started" },
     ],
   },

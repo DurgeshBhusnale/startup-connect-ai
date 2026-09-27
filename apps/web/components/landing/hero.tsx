@@ -42,6 +42,17 @@ export function Hero() {
             <ArrowRightIcon />
           </Link>
         </div>
+        <p className="mt-4 text-small text-muted">
+          Not raising?{" "}
+          <Link href="/for-investors" className="font-medium text-emerald-deep hover:underline">
+            See it as an investor
+          </Link>{" "}
+          or{" "}
+          <Link href="/for-mentors" className="font-medium text-emerald-deep hover:underline">
+            as a mentor
+          </Link>
+          .
+        </p>
         <dl className="mt-8 grid grid-cols-3 gap-4 border-t border-line pt-6">
           {heroStats.map((stat) => (
             <div key={stat.label} className="flex flex-col-reverse gap-1">
